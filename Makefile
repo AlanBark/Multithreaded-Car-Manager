@@ -10,3 +10,13 @@ simulator:
 
 fire_alarm: 
 	$(MAKE) -C fire_alarm
+
+.PHONY: clean
+
+clean:
+	$(RM) manager.out
+	$(RM) simulator.out
+	$(RM) fire_alarm.out
+	$(MAKE) -C manager clean
+	$(MAKE) -C simulator clean
+	$(MAKE) -C fire_alarm clean
