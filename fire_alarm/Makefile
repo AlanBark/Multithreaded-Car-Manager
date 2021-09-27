@@ -1,3 +1,6 @@
+CC=gcc
+CFLAGS=-Werror -Wall -pedantic -std=c18 -lpthreads -g
+
 TARGET_EXEC ?= fire_alarm.out
 
 BUILD_DIR ?= ./build
