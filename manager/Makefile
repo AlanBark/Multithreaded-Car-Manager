@@ -1,5 +1,6 @@
 CC=gcc
-CFLAGS=-Werror -Wall -pedantic -std=c18 -lpthreads -g
+CFLAGS=-Werror -Wall -pedantic -std=c18 -g
+LDFLAGS=-pthread
 
 TARGET_EXEC ?= manager.out
 
