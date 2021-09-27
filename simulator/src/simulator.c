@@ -11,10 +11,9 @@
 #include "lpr.h"
 
 int main(int argc, char **argv) {
-    lpr_t * lpr = (lpr_t *)malloc(sizeof(lpr_t));
-    updatePlate(lpr, "abc123");
-    printf("%s\n", lpr->licensePlate);
-    free(lpr);
+    lpr_t lpr;
+    initialize_lpr(&lpr);
+    printf("%s\n", lpr.licensePlate);
     return 0;
 }
 
