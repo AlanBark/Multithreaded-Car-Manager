@@ -1,4 +1,5 @@
 all: manager simulator fire_alarm
+	@printf '\nMake Successful\n\n'
 
 .PHONY: manager simulator fire_alarm
 

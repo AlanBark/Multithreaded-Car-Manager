@@ -13,7 +13,8 @@
 int main(int argc, char **argv) {
     lpr_t lpr;
     initialize_lpr(&lpr);
-    printf("%s\n", lpr.licensePlate);
+    update_plate(&lpr, "abc123");
+    printf("%s\n", lpr.license_plate);
     return 0;
 }
 

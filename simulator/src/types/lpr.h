@@ -7,10 +7,10 @@ typedef struct lpr {
 
     pthread_cond_t cond;
 
-    char licensePlate[6];
+    char license_plate[6];
 
 } lpr_t;
 
-void updatePlate(lpr_t*, char[6]);
-
 void initialize_lpr(lpr_t*);
+
+void update_plate(lpr_t*, char[6]);

@@ -3,7 +3,7 @@
 #include <pthread.h>
 
 void initialize_lpr(lpr_t* lpr) {
-    memset(lpr->licensePlate, 0, sizeof(lpr->licensePlate));
+    memset(lpr->license_plate, 0, sizeof(lpr->license_plate));
 
     pthread_mutexattr_t mutexAttr;
     pthread_mutexattr_init(&mutexAttr);
@@ -17,5 +17,10 @@ void initialize_lpr(lpr_t* lpr) {
 }
 
 void update_plate(lpr_t* lpr, char plate[6]) {
-    memcpy(lpr->licensePlate, plate, 6);
+
+    pthread_mutex_lock(&lpr->mutex);
+    memcpy(lpr->license_plate, plate, 6);
+    pthread_mutex_unlock(&lpr->mutex);
+
+    pthread_cond_signal(&lpr->cond);
 }
