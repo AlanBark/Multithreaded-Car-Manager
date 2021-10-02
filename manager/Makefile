@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=-Werror -Wall -pedantic -std=c18 -g
-LDFLAGS=-pthread
+CFLAGS=-Werror -Wall -pedantic -std=gnu99 -g
+LDFLAGS=-pthread -lrt
 
 TARGET_EXEC ?= manager.out
 
