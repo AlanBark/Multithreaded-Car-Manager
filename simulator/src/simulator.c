@@ -20,6 +20,18 @@
 
 #define EXIT_COUNT 5
 
+void generate_cars(int entrance_count,char plate[7], pthread_mutex_t *rng_mutex) {
+
+    plate[0] = get_random_number(rng_mutex, 48, 57);
+    plate[1] = get_random_number(rng_mutex, 48, 57);
+    plate[2] = get_random_number(rng_mutex, 48, 57);
+    
+    plate[3] = get_random_number(rng_mutex, 65, 90);
+    plate[4] = get_random_number(rng_mutex, 65, 90);
+    plate[5] = get_random_number(rng_mutex, 65, 90);
+    plate[6] = 0;
+}
+
 int main(int argc, char **argv) {
 
     /* Shared memory setup */
@@ -41,8 +53,8 @@ int main(int argc, char **argv) {
     
     pthread_mutex_t rng_mutex;
     pthread_mutex_init(&rng_mutex, NULL);
-
-    
-
+    char plate[7];
+    generate_cars(ENTRANCE_COUNT, plate, &rng_mutex);
+    printf("%s\n", plate);
     return 0;
 }

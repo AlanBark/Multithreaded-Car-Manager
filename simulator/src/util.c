@@ -17,7 +17,3 @@ int get_random_number(pthread_mutex_t *mutex, int minimum, int maximum) {
     pthread_mutex_unlock(mutex);
     return (number % (maximum - minimum + 1) + minimum);
 }
-
-void generate_cars(int entrance_count) {
-    ;
-}
