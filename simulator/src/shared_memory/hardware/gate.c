@@ -19,7 +19,7 @@ void update_gate(gate_t* gate, char status) {
     
     pthread_mutex_lock(&gate->mutex);
     gate->status = status;
+    pthread_cond_signal(&gate->cond);
     pthread_mutex_unlock(&gate->mutex);
 
-    pthread_cond_signal(&gate->cond);
 }

@@ -19,7 +19,7 @@ void update_sign(sign_t* sign, char display) {
     
     pthread_mutex_lock(&sign->mutex);
     sign->display = display;
+    pthread_cond_signal(&sign->cond);
     pthread_mutex_unlock(&sign->mutex);
 
-    pthread_cond_signal(&sign->cond);
 }

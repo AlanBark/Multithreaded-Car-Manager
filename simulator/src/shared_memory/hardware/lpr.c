@@ -17,10 +17,8 @@ void initialize_lpr(lpr_t* lpr) {
 }
 
 void update_plate(lpr_t* lpr, char plate[6]) {
-
     pthread_mutex_lock(&lpr->mutex);
     memcpy(lpr->license_plate, plate, 6);
-    pthread_mutex_unlock(&lpr->mutex);
-
     pthread_cond_signal(&lpr->cond);
+    pthread_mutex_unlock(&lpr->mutex);
 }
