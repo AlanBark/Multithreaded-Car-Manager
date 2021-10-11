@@ -4,8 +4,8 @@ LDFLAGS=-pthread -lrt
 
 TARGET_EXEC ?= simulator.out
 
-BUILD_DIR ?= ./build
-SRC_DIRS ?= ./src
+BUILD_DIR ?= ./build/main
+SRC_DIRS ?= ./src ../shared_memory
 
 SRCS := $(shell find $(SRC_DIRS) -name *.c)
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
@@ -27,7 +27,7 @@ $(BUILD_DIR)/%.c.o: %.c
 .PHONY: clean
 
 clean:
-	$(RM) -r $(BUILD_DIR)
+	$(RM) -r ./build
 
 -include $(DEPS)
 

@@ -8,6 +8,7 @@
 
 #include "car.h"
 #include "entrance.h"
+#include "queue.h"
 #include "exit.h"
 #include "level.h"
 #include "shared_memory.h"

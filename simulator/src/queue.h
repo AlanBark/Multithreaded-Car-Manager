@@ -1,6 +1,7 @@
 #pragma once
 #include <pthread.h>
 #include "car.h"
+#include "entrance.h"
 
 typedef struct queue_node {
 
@@ -31,6 +32,14 @@ typedef struct car_args {
     queue_t **queues;
 
 } car_args_t;
+
+typedef struct entrance_args {
+
+    queue_t *queue;
+
+    entrance_t entrance;
+
+} entrance_args_t;
 
 void queue_initialize(queue_t *queue);
 
