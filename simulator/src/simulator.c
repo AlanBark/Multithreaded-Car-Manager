@@ -31,34 +31,37 @@ void *run_car(void *car_args) {
 }
 
 void *run_entrances(void *entrance_args) {
-    entrance_args_t *args = (entrance_args_t*) entrance_args;
+    entrance_args_t *args;
+    args = (entrance_args_t*) entrance_args;
+    
     // entrance stays alive until program ends.
     while (true) {
-        pthread_mutex_lock(&args->queue.mutex);
+        pthread_mutex_lock(&args->queue->mutex);
         
         // Wait on new cars to avoid busy waiting.
-        if (args->queue.length == 0) {
-            pthread_cond_wait(&args->queue.cond, &args->queue.mutex);
+        if (args->queue->head == NULL) {
+            pthread_cond_wait(&args->queue->cond, &args->queue->mutex);
         }
 
         // A car has arrived! Time to sleep
         ms_sleep(2);
-        update_plate(&args->entrance.lpr, args->queue.cars[0].license_plate);
+        // update relevant lpr and wait for the sign to update accordingly
+        update_plate(&args->entrance.lpr, args->queue->head->car.license_plate);
 
         pthread_mutex_lock(&args->entrance.sign.mutex);
         pthread_cond_wait(&args->entrance.sign.cond, &args->entrance.sign.mutex);
+        // car was assigned a space, give the car a thread
         if (isdigit(args->entrance.sign.display)) {
-            // pthread_create(&entrance_threads[i], NULL, run_entrances, (void *)&args);
-            // run_car((void*)'test');
-        } 
+            // do stuff
+        }
 
+        // unlock mutexes, remove cars from queue and free memory.
         pthread_mutex_unlock(&args->entrance.sign.mutex);
 
-        // @TODO this properly
-        args->queue.cars++;
-        args->queue.length--;
-        args->queue.cars = realloc(args->queue.cars, sizeof(car_t) * args->queue.max_length);
-        pthread_mutex_unlock(&args->queue.mutex);
+        args->queue->head = args->queue->head->next;
+        free(args->queue->head);
+
+        pthread_mutex_unlock(&args->queue->mutex);
     }
     pthread_exit(NULL);
 }
@@ -88,19 +91,22 @@ int main(int argc, char **argv) {
     pthread_t car_factory_tid;
 
     /* Entrance Queue Setup */
-    queue_t *entrance_queues = malloc(sizeof(queue_t)*ENTRANCE_COUNT);
-    initialize_queues(&entrance_queues, INITIAL_QUEUE_SIZE, ENTRANCE_COUNT);
+    queue_t **entrance_queues = malloc(sizeof(queue_t*)*ENTRANCE_COUNT);
+    entrance_args_t entrance_args[ENTRANCE_COUNT];
 
     for (int i = 0; i < ENTRANCE_COUNT; i++) {
-        entrance_args_t args;
-        args.queue = entrance_queues[i];
-        args.entrance = shm.data->entrance_collection[i];
-        pthread_create(&entrance_threads[i], NULL, run_entrances, (void *)&args);
+        entrance_queues[i] = malloc(sizeof(queue_t));
+        queue_initialize(entrance_queues[i]);
+
+        entrance_args[i].queue = entrance_queues[i];
+        entrance_args[i].entrance = shm.data->entrance_collection[i];
+
+        pthread_create(&entrance_threads[i], NULL, run_entrances, (void *)&entrance_args[i]);
     }
 
     /* Car factory setup */
     car_args_t car_args;
-    car_args.queue = entrance_queues;
+    car_args.queues = entrance_queues;
     car_args.entrance_count = ENTRANCE_COUNT;
     car_args.rng_mutex = &rng_mutex;
 

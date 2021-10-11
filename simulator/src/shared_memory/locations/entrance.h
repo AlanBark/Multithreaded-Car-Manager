@@ -4,6 +4,7 @@
 #include "sign.h"
 #include "lpr.h"
 #include "car.h"
+#include "queue.h"
 
 typedef struct entrance {
 
@@ -15,30 +16,9 @@ typedef struct entrance {
 
 } entrance_t;
 
-
-/* Entrance queue. Contains a mutex and condition variable since this is modified by the
-    Entrance thread and car factory thread.
-    Length is the CURRENT amount of cars in the queue, not the amount of space that has 
-    been malloced for the cars array.
- */
-typedef struct queue {
-
-    car_t *cars;
-
-    int length;
-
-    int max_length;
-
-    pthread_mutex_t mutex;
-    
-    pthread_cond_t cond;
-
-} queue_t;
-
-
 typedef struct entrance_args {
 
-    queue_t queue;
+    queue_t *queue;
 
     entrance_t entrance;
 
@@ -47,4 +27,4 @@ typedef struct entrance_args {
 
 void initialize_entrance(entrance_t *entrance);
 
-void initialize_queues(queue_t **queue, int queue_size, int entrance_count);
+// void initialize_queues(queue_t **queue, int queue_size, int entrance_count);
