@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <ctype.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -72,13 +73,13 @@ int main(int argc, char **argv) {
     /* Shared memory setup */
     shared_memory_t shm;
 
-    if (!create_shared_object(&shm, SHARED_NAME)) {
-        fprintf(stderr, "ERROR Failed to create shared object");
+    if (!create_shared_object(&shm, SHARED_NAME, true)) {
+        fprintf(stderr, "ERROR Failed to create shared object\n");
         return 1;
     }
 
     if (!initialize_shared_object(&shm, ENTRANCE_COUNT, EXIT_COUNT, LEVEL_COUNT)) {
-        fprintf(stderr, "ERROR Failed to initialize shared object");
+        fprintf(stderr, "ERROR Failed to initialize shared object\n");
         return 1;
     }
 

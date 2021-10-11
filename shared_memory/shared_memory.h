@@ -27,6 +27,6 @@ typedef struct shared_memory {
 
 } shared_memory_t;
 
-bool create_shared_object(shared_memory_t* shm, const char* share_name);
+bool create_shared_object(shared_memory_t* shm, const char* share_name, bool create);
 
 bool initialize_shared_object(shared_memory_t *shm, int num_entrances, int num_exits, int num_levels);
