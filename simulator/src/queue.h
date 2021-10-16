@@ -37,10 +37,8 @@ typedef struct entrance_args {
 
     queue_t *queue;
 
-    entrance_t entrance;
+    entrance_t *entrance;
 
 } entrance_args_t;
 
 void queue_initialize(queue_t *queue);
-
-void queue_add(queue_t* queue, car_t car);

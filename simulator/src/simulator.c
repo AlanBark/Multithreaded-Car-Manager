@@ -26,7 +26,7 @@
 #define EXIT_COUNT 5
 
 /* Amount of cars to malloc for the first queue */
-#define INITIAL_QUEUE_SIZE 50   
+#define INITIAL_QUEUE_SIZE 50
 
 void *run_car(void *car_args) {
     pthread_exit(NULL);
@@ -37,33 +37,36 @@ void *run_entrances(void *entrance_args) {
     args = (entrance_args_t*) entrance_args;
     
     // entrance stays alive until program ends.
+    pthread_mutex_lock(&args->queue->mutex);
+
     while (true) {
-        pthread_mutex_lock(&args->queue->mutex);
-        
+
         // Wait on new cars to avoid busy waiting.
-        if (args->queue->head == NULL) {
+        while (args->queue->head == NULL) {
             pthread_cond_wait(&args->queue->cond, &args->queue->mutex);
         }
 
         // A car has arrived! Time to sleep
         ms_sleep(2);
-        // update relevant lpr and wait for the sign to update accordingly
-        update_plate(&args->entrance.lpr, args->queue->head->car.license_plate);
 
-        pthread_mutex_lock(&args->entrance.sign.mutex);
-        pthread_cond_wait(&args->entrance.sign.cond, &args->entrance.sign.mutex);
+        // update relevant lpr and wait for the sign to update accordingly
+        update_plate(&args->entrance->lpr, args->queue->head->car.license_plate);
+
+        pthread_mutex_lock(&args->entrance->sign.mutex);
+        pthread_cond_wait(&args->entrance->sign.cond, &args->entrance->sign.mutex);
+        
         // car was assigned a space, give the car a thread
-        if (isdigit(args->entrance.sign.display)) {
+        if (isdigit(args->entrance->sign.display)) {
             // do stuff
         }
 
-        // unlock mutexes, remove cars from queue and free memory.
-        pthread_mutex_unlock(&args->entrance.sign.mutex);
+        // unlock mutexes, remove cars from queue and free queue memory.
+        pthread_mutex_unlock(&args->entrance->sign.mutex);
 
-        args->queue->head = args->queue->head->next;
+        //printf("Freeing %s at addr %p\n", args->queue->head->car.license_plate, (void *)args->queue->head);
+        queue_node_t *next = args->queue->head->next;
         free(args->queue->head);
-
-        pthread_mutex_unlock(&args->queue->mutex);
+        args->queue->head = next;
     }
     pthread_exit(NULL);
 }
@@ -101,7 +104,7 @@ int main(int argc, char **argv) {
         queue_initialize(entrance_queues[i]);
 
         entrance_args[i].queue = entrance_queues[i];
-        entrance_args[i].entrance = shm.data->entrance_collection[i];
+        entrance_args[i].entrance = &shm.data->entrance_collection[i];
 
         pthread_create(&entrance_threads[i], NULL, run_entrances, (void *)&entrance_args[i]);
     }

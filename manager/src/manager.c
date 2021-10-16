@@ -11,7 +11,7 @@
 
 struct entrance_args {
     htab_t plates;
-    entrance_t entrance;
+    entrance_t *entrance;
 };
 
 /* Reads entrance input and checks against the list of accepted plates.*/
@@ -19,24 +19,35 @@ void* run_entrances(void *entrance_args) {
     struct entrance_args *args;
     args = (struct entrance_args*) entrance_args;
     
-    pthread_mutex_lock(&args->entrance.lpr.mutex);
+    // aquire mutex for duration of loop - unlocked by wait only
+    pthread_mutex_lock(&args->entrance->lpr.mutex);
+
+    // always run entrance sign
+    while (true) {
+        while (htab_find(&args->plates, args->entrance->lpr.license_plate) == NULL) {
+            // Car was not accepted; Signal entrance queue by updating sign and waiting for a new car.
+            update_sign(&args->entrance->sign, 'D');
+            printf("Denied access to %s\n", args->entrance->lpr.license_plate);
+            pthread_cond_wait(&args->entrance->lpr.cond, &args->entrance->lpr.mutex);
+        }
+        // car was accepted, update sign and wait for a new car;
+        update_sign(&args->entrance->sign, 1);
+        printf("Allowed access to %s\n", args->entrance->lpr.license_plate);
+        pthread_cond_wait(&args->entrance->lpr.cond, &args->entrance->lpr.mutex);
+    }
     
     while (true) {
-        if (htab_find(&args->plates, args->entrance.lpr.license_plate) != NULL) {
-            pthread_mutex_lock(&args->entrance.sign.mutex);
+        pthread_mutex_lock(&args->entrance->lpr.mutex);
+        if (htab_find(&args->plates, args->entrance->lpr.license_plate) != NULL) {
             // @TODO Boom gates, find appropriate level.
-            args->entrance.sign.display = 1;
-            pthread_cond_signal(&args->entrance.sign.cond);
-            pthread_mutex_unlock(&args->entrance.sign.mutex);
-            printf("Allowed access to %s\n", args->entrance.lpr.license_plate);
+            update_sign(&args->entrance->sign, 1);
+            printf("Allowed access to %s\n", args->entrance->lpr.license_plate);
         } else {
-            pthread_mutex_lock(&args->entrance.sign.mutex);
-            args->entrance.sign.display = 'D';
-            pthread_cond_signal(&args->entrance.sign.cond);
-            pthread_mutex_unlock(&args->entrance.sign.mutex);
-            printf("Denied access to %s\n", args->entrance.lpr.license_plate);
+            update_sign(&args->entrance->sign, 'D');
+            printf("Denied access to %s\n", args->entrance->lpr.license_plate);
         }
-        pthread_cond_wait(&args->entrance.lpr.cond, &args->entrance.lpr.mutex);
+        pthread_cond_wait(&args->entrance->lpr.cond, &args->entrance->lpr.mutex);
+        pthread_mutex_unlock(&args->entrance->lpr.mutex);
     }
     pthread_exit(NULL);
 }
@@ -83,7 +94,7 @@ int main(int argc, char **argv) {
 
     // create enough threads to handle each entrance
     for (int i = 0; i < ENTRANCE_COUNT; i++) {
-        args[i].entrance = shm.data->entrance_collection[i];
+        args[i].entrance = &shm.data->entrance_collection[i];
         args[i].plates = plates;
         pthread_create(&entrance_threads[i], NULL, run_entrances, (void *)&args[i]);
     }

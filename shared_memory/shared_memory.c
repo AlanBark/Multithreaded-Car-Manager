@@ -44,7 +44,7 @@ bool create_shared_object(shared_memory_t* shm, const char* share_name, bool cre
     // Create the shared memory object, allowing read-write access, and saving the
     // resulting file descriptor in shm->fd. If creation failed, ensure 
     // that shm->data is NULL and return false.
-    shm->fd = shm_open(share_name, o_flags , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+    shm->fd = shm_open(share_name, o_flags , 0666);
     if (shm->fd < 0) {
         shm->data = NULL;
         return false;

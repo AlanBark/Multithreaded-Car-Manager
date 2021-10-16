@@ -1,5 +1,5 @@
 #include <stdbool.h>
-#include <stdio.h> // @TODO remove
+#include <string.h>
 #include <stdlib.h>
 #include "car.h"
 #include "entrance.h"
@@ -28,10 +28,11 @@ void *generate_cars(void *car_args) {
         car.license_plate[4] = get_random_number(rng_mutex, 65, 90);
         car.license_plate[5] = get_random_number(rng_mutex, 65, 90);
         int entrance = get_random_number(rng_mutex, 1, entrance_count);
-        printf("Added car %s to %d, took %dms\n", car.license_plate, entrance, delay);
 
         queue_node_t* node = malloc(sizeof(queue_node_t));
+        memset(node, 0, sizeof(queue_node_t));
         node->car = car;
+        node->next = NULL;
 
         if (args->queues[entrance - 1]->head == NULL) {
             pthread_mutex_lock(&args->queues[entrance - 1]->mutex);
@@ -43,6 +44,5 @@ void *generate_cars(void *car_args) {
             args->queues[entrance - 1]->tail->next = node;
             args->queues[entrance - 1]->tail = node;
         }
-        // queue_add(args->queues[entrance - 1], car);
     }
 }
