@@ -7,7 +7,7 @@
 
 #define SHARED_NAME "PARKING"
 #define ENTRANCE_COUNT 5
-#define BUCKETS 100
+#define BUCKETS 100000
 
 struct entrance_args {
     htab_t plates;
@@ -21,33 +21,15 @@ void* run_entrances(void *entrance_args) {
     
     // aquire mutex for duration of loop - unlocked by wait only
     pthread_mutex_lock(&args->entrance->lpr.mutex);
-
-    // always run entrance sign
     while (true) {
-        while (htab_find(&args->plates, args->entrance->lpr.license_plate) == NULL) {
-            // Car was not accepted; Signal entrance queue by updating sign and waiting for a new car.
-            update_sign(&args->entrance->sign, 'D');
-            printf("Denied access to %s\n", args->entrance->lpr.license_plate);
-            pthread_cond_wait(&args->entrance->lpr.cond, &args->entrance->lpr.mutex);
-        }
-        // car was accepted, update sign and wait for a new car;
-        update_sign(&args->entrance->sign, 1);
-        printf("Allowed access to %s\n", args->entrance->lpr.license_plate);
-        pthread_cond_wait(&args->entrance->lpr.cond, &args->entrance->lpr.mutex);
-    }
-    
-    while (true) {
-        pthread_mutex_lock(&args->entrance->lpr.mutex);
         if (htab_find(&args->plates, args->entrance->lpr.license_plate) != NULL) {
             // @TODO Boom gates, find appropriate level.
             update_sign(&args->entrance->sign, 1);
             printf("Allowed access to %s\n", args->entrance->lpr.license_plate);
         } else {
             update_sign(&args->entrance->sign, 'D');
-            printf("Denied access to %s\n", args->entrance->lpr.license_plate);
         }
         pthread_cond_wait(&args->entrance->lpr.cond, &args->entrance->lpr.mutex);
-        pthread_mutex_unlock(&args->entrance->lpr.mutex);
     }
     pthread_exit(NULL);
 }
@@ -81,8 +63,9 @@ int main(int argc, char **argv) {
     }
     
     while (getline(&line, &line_len, fp) != -1) {
-        char *plate = malloc(sizeof(char)*7);
-        memcpy(plate, line, 7);
+        // ignore last byte
+        char *plate = malloc(sizeof(char)*6);
+        memcpy(plate, line, 6);
         if (htab_add(&plates, plate) == false) {
             printf("Failed to add item to hash table.\n");
             return EXIT_FAILURE;
