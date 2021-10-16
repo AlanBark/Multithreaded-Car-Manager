@@ -27,7 +27,7 @@ void* run_entrances(void *entrance_args) {
             update_sign(&args->entrance->sign, 1);
             printf("Allowed access to %s\n", args->entrance->lpr.license_plate);
         } else {
-            update_sign(&args->entrance->sign, 'D');
+            update_sign(&args->entrance->sign, 'X');
         }
         pthread_cond_wait(&args->entrance->lpr.cond, &args->entrance->lpr.mutex);
     }
