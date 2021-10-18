@@ -23,3 +23,17 @@ void update_gate(gate_t* gate, char status) {
     pthread_mutex_unlock(&gate->mutex);
 
 }
+
+/* get gate details for status display */
+// @TODO AFTER GATE IMPLEMENT
+char get_gate(gate_t* gate) {
+    pthread_mutex_lock(&gate->mutex);
+    char status;
+    if (gate->status == 0) {
+        status = '-';
+    } else {
+        status = gate->status;
+    }
+    pthread_mutex_unlock(&gate->mutex);
+    return status;
+}

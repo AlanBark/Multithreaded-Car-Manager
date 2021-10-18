@@ -1,12 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <pthread.h>
 
 #include "shared_memory.h"
 #include "plate_table.h"
+#include "status.h"
 
 #define SHARED_NAME "PARKING"
+
 #define ENTRANCE_COUNT 5
+#define EXIT_COUNT 5
+#define LEVEL_COUNT 5
+#define CARS_PER_LEVEL 20
+
 #define BUCKETS 100000
 
 struct entrance_args {
@@ -34,6 +41,14 @@ void* run_entrances(void *entrance_args) {
     pthread_exit(NULL);
 }
 
+/* Runs the thread controlling the status screen that the user sees.
+    Updates every 50ms with information available at that time.
+*/
+void *run_status(void *status_args) {
+    pthread_exit(NULL);
+}
+
+//
 int main(int argc, char **argv) {
 
     shared_memory_t shm;
@@ -72,6 +87,15 @@ int main(int argc, char **argv) {
         }
     }
 
+    level_info_t **levels = malloc(sizeof(level_info_t*) * LEVEL_COUNT);
+    for (int i = 0; i < LEVEL_COUNT; i++) {
+        levels[i] = malloc(sizeof(level_info_t));
+        initialise_level_info(levels[i], CARS_PER_LEVEL);
+    }
+
+    update(ENTRANCE_COUNT,EXIT_COUNT,LEVEL_COUNT,CARS_PER_LEVEL, shm.data, levels, 12.34);
+    return 0;
+
     pthread_t entrance_threads[ENTRANCE_COUNT];
     struct entrance_args args[ENTRANCE_COUNT];
 
@@ -81,6 +105,8 @@ int main(int argc, char **argv) {
         args[i].plates = plates;
         pthread_create(&entrance_threads[i], NULL, run_entrances, (void *)&args[i]);
     }
+
+
 
     pthread_join(entrance_threads[0], NULL);
 

@@ -14,3 +14,5 @@ typedef struct sign {
 void initialize_sign(sign_t*);
 
 void update_sign(sign_t*, char);
+
+char get_sign(sign_t* sign);

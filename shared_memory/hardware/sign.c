@@ -21,3 +21,15 @@ void update_sign(sign_t* sign, char display) {
     pthread_cond_signal(&sign->cond);
     pthread_mutex_unlock(&sign->mutex);
 }
+
+char get_sign(sign_t* sign) {
+    pthread_mutex_lock(&sign->mutex);
+        char display;
+    if (sign->display == 0) {
+        display = '-';
+    } else {
+        display = sign->display;
+    }
+    pthread_mutex_unlock(&sign->mutex);
+    return display;
+}

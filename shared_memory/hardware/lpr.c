@@ -22,3 +22,15 @@ void update_plate(lpr_t* lpr, char plate[6]) {
     pthread_cond_signal(&lpr->cond);
     pthread_mutex_unlock(&lpr->mutex);
 }
+
+/* get plate for display formatting */
+void get_plate(lpr_t* lpr, char plate[7]) {
+    pthread_mutex_lock(&lpr->mutex);
+    memset(plate, 0, 7);
+    if (lpr->license_plate[0] == '\0') {
+        memcpy(plate, "------", 6);
+    } else {
+        memcpy(plate, lpr->license_plate, 6);
+    }
+    pthread_mutex_unlock(&lpr->mutex);
+}

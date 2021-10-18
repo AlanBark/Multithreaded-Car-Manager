@@ -14,3 +14,5 @@ typedef struct lpr {
 void initialize_lpr(lpr_t*);
 
 void update_plate(lpr_t*, char[6]);
+
+void get_plate(lpr_t* lpr, char plate[7]);
