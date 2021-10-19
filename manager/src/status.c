@@ -17,18 +17,31 @@ int get_current_cars(level_info_t *level_info) {
 
 /* Updates the status menu with the most recent hardware data.
 Most of the below code is just a means to display pretty output
+And display without flickering
  */
-void update(int num_entrances, int num_exits, int num_levels, int cars_per_level, shared_data_t *data, level_info_t **level_info, float revenue) {
+void *update_status_display(void *status_args) {
 
-    // approx number of chars display requires. Minimum 1040 if no levels or entrances. 
-    // int display_size = 1200 + (num_entrances * 80) + (num_levels * 80);
+    status_args_t *args;
+    args = (status_args_t*) status_args;
 
-    // char display[display_size];
-    printf("* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\n\
+    shared_data_t *data = args->data;
+    int num_entrances = args->num_entrances;
+    int num_levels = args->num_levels;
+    int num_exits = args->num_exits;
+    int cars_per_level = args->cars_per_level;
+    level_info_t **level_info = args->level_info;
+    float *revenue = args->revenue;
+
+    while (true) {
+        int length = 0;
+        int buffer_len = 1400 + (80 * num_entrances) + (80 * num_levels);
+        char buffer[buffer_len];
+
+    length += sprintf(buffer+length, "* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\n\
 * STATUS FOR ENTRANCES            STATUS FOR EXITS         REVENUE TOTAL      *\n\
 * +-------------+------+------+   +-------------+------+   +----------------+ *\n\
 * | ID | LPR    | BOOM | SIGN |   | ID | LPR    | BOOM |   | $%.2f\n\
-* +----+--------+------+------+   +----+--------+------+   +----------------+ *\n", revenue);
+* +----+--------+------+------+   +----+--------+------+   +----------------+ *\n", *revenue);
 
     for (int i = 0; i < num_entrances; i++) {
         char plate[7];
@@ -39,13 +52,13 @@ void update(int num_entrances, int num_exits, int num_levels, int cars_per_level
             char exit_gate = get_gate(&data->exit_collection[i].gate);
             char exit_plate[7];
             get_plate(&data->exit_collection[i].lpr, exit_plate);
-            printf("* | %d  | %s | %c    | %c    |   | %d  | %s | %c    |                      *\n", i+1, plate, gate, sign, i, exit_plate, exit_gate);
+            length += sprintf(buffer+length, "* | %d  | %s | %c    | %c    |   | %d  | %s | %c    |                      *\n", i+1, plate, gate, sign, i, exit_plate, exit_gate);
         } else {
-            printf("* | %d  | %s | %c    | %c    |                                               *\n", i+1, plate, gate, sign);
+            length += sprintf(buffer+length, "* | %d  | %s | %c    | %c    |                                               *\n", i+1, plate, gate, sign);
         }
     }
 
-    printf("* +----+--------+------+------+   +----+--------+------+                      *\n\
+    length += sprintf(buffer+length, "* +----+--------+------+------+   +----+--------+------+                      *\n\
 *                                                                             *\n\
 * STATUS FOR LEVELS                                                           *\n\
 * +-------+--------+------+----------+----------+                             *\n\
@@ -56,11 +69,15 @@ void update(int num_entrances, int num_exits, int num_levels, int cars_per_level
         char plate[7];
         get_plate(&data->level_collection[i].lpr, plate);
         int current_cars = get_current_cars(level_info[i]);
-        printf("* | %d     | %s | %d    | %d       | %d        |                             *\n", i+1, plate, current_cars, cars_per_level, data->level_collection[i].sensor);
+        length += sprintf(buffer+length, "* | %d     | %s | %d    | %d       | %d        |                             *\n", i+1, plate, current_cars, cars_per_level, data->level_collection[i].sensor);
     }
 
-    printf("* +-------+--------+------+----------+----------+                             *\n\
+    length += sprintf(buffer+length, "* +-------+--------+------+----------+----------+                             *\n\
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\n");
+        system("clear");
+        printf(buffer);
+        ms_sleep(50);
+    }
 }
 
 void initialise_level_info(level_info_t *level_info, int max_cars) {

@@ -32,19 +32,11 @@ void* run_entrances(void *entrance_args) {
         if (htab_find(&args->plates, args->entrance->lpr.license_plate) != NULL) {
             // @TODO Boom gates, find appropriate level.
             update_sign(&args->entrance->sign, 1);
-            printf("Allowed access to %s\n", args->entrance->lpr.license_plate);
         } else {
             update_sign(&args->entrance->sign, 'X');
         }
         pthread_cond_wait(&args->entrance->lpr.cond, &args->entrance->lpr.mutex);
     }
-    pthread_exit(NULL);
-}
-
-/* Runs the thread controlling the status screen that the user sees.
-    Updates every 50ms with information available at that time.
-*/
-void *run_status(void *status_args) {
     pthread_exit(NULL);
 }
 
@@ -93,8 +85,19 @@ int main(int argc, char **argv) {
         initialise_level_info(levels[i], CARS_PER_LEVEL);
     }
 
-    update(ENTRANCE_COUNT,EXIT_COUNT,LEVEL_COUNT,CARS_PER_LEVEL, shm.data, levels, 12.34);
-    return 0;
+    float revenue = 12.23;
+
+    status_args_t status_args;
+    status_args.num_entrances = ENTRANCE_COUNT;
+    status_args.num_exits = EXIT_COUNT;
+    status_args.num_levels = LEVEL_COUNT;
+    status_args.level_info = levels;
+    status_args.cars_per_level = CARS_PER_LEVEL;
+    status_args.data = shm.data;
+    status_args.revenue = &revenue;
+    pthread_t status_thread;
+
+    pthread_create(&status_thread, NULL, update_status_display, (void*)&status_args);
 
     pthread_t entrance_threads[ENTRANCE_COUNT];
     struct entrance_args args[ENTRANCE_COUNT];
@@ -106,8 +109,7 @@ int main(int argc, char **argv) {
         pthread_create(&entrance_threads[i], NULL, run_entrances, (void *)&args[i]);
     }
 
-
-
+    //@todo
     pthread_join(entrance_threads[0], NULL);
 
     return 0;

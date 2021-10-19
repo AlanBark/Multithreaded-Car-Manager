@@ -13,6 +13,18 @@ typedef struct level_info {
     pthread_mutex_t mutex;
 } level_info_t;
 
-void update(int num_entrances, int num_exits, int num_levels, int cars_per_level, shared_data_t *data, level_info_t **level_info, float revenue);
+typedef struct status_args {
+    int num_entrances;
+    int num_exits;
+    int num_levels;
+    int cars_per_level;
+    shared_data_t* data;
+    level_info_t **level_info;
+    float *revenue;
+} status_args_t;
+
+void *update_status_display(void *status_args);
+
+void *run_status(void *status_args_t);
 
 void initialise_level_info(level_info_t *level_info, int max_cars);
