@@ -23,34 +23,24 @@ struct entrance_args {
     entrance_t *entrance;
 };
 
-typedef struct gate_args {
-    gate_t *gate;
-    bool timer_running;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-} gate_args_t;
-
 // Controls the lowering of boom gates after 20ms.
-void *run_gates(void *gate_args) {
-    gate_args_t *args;
-    args = (gate_args_t *)gate_args;
-    gate_t *gate = args->gate;
+void *run_gates(void *gate_arg) {
+    gate_t *gate;
+    gate = (gate_t *)gate_arg;
 
-    pthread_mutex_lock(&args->mutex);
-    
-    // gate always alive
+    // Gate always alive
     while (true) {
-        // block thread until status is set to open.
-        while(!args->timer_running) {
-            pthread_cond_wait(&args->cond, &args->mutex);
+        // block thread until gate is open
+        pthread_mutex_lock(&gate->mutex);
+        while (gate->status != 'O') {
+            pthread_cond_wait(&gate->cond, &gate->mutex);
         }
-        // timer should be running now
+        // release mutex for other threads, wait 20ms, take mutex and set gate to lowering.
+        pthread_mutex_unlock(&gate->mutex);
         ms_sleep(20);
-
-        args->timer_running = false;
-
         update_gate(gate, 'L');
     }
+    pthread_exit(NULL);
 }
 
 /* Reads entrance input and checks against the list of accepted plates.*/
@@ -58,39 +48,34 @@ void* run_entrances(void *entrance_args) {
     struct entrance_args *args;
     args = (struct entrance_args*) entrance_args;
 
-    gate_args_t gate_args;
-    gate_args.gate = &args->entrance->gate;
-    gate_args.timer_running = false;
-    pthread_mutex_init(&gate_args.mutex, NULL);
-    pthread_cond_init(&gate_args.cond, NULL);
-
     pthread_t gate_tid;
-    pthread_create(&gate_tid, NULL, run_gates, (void*) &gate_args);
+    pthread_create(&gate_tid, NULL, run_gates, (void*) &args->entrance->gate);
     
     // aquire mutex for duration of loop - unlocked by wait only
     pthread_mutex_lock(&args->entrance->lpr.mutex);
     while (true) {
         if (htab_find(&args->plates, args->entrance->lpr.license_plate) != NULL) {
-            // car valid. Signal the car where to go and start boom gate process if not already opened.
-
+            // car valid. Signal the car where to go and start boom gate process if closed.
             update_sign(&args->entrance->sign, '1');
 
-            // open boom gate logic
+            // Boom gate logic
             pthread_mutex_lock(&args->entrance->gate.mutex);
-            // Continue waiting until gate is open
-            while (args->entrance->gate.status != 'O') {
-                // if gate is set to C, set to R and signal simulator
+            if (args->entrance->gate.status == 'C') {
+                args->entrance->gate.status = 'R';
+                pthread_cond_broadcast(&args->entrance->gate.cond);
+            } else {
+                // Condition where gate is in lowering stage and must be re-opened
+                while(args->entrance->gate.status == 'L') {
+                    pthread_cond_wait(&args->entrance->gate.cond, &args->entrance->gate.mutex);
+                }
+                // after gate has changed from 'L', check again that is 'C'.
                 if (args->entrance->gate.status == 'C') {
                     args->entrance->gate.status = 'R';
                     pthread_cond_broadcast(&args->entrance->gate.cond);
                 }
-                pthread_cond_wait(&args->entrance->gate.cond, &args->entrance->gate.mutex);
             }
-            pthread_mutex_lock(&gate_args.mutex);
-            gate_args.timer_running = true;
-            pthread_cond_signal(&gate_args.cond);
-            pthread_mutex_unlock(&gate_args.mutex);
             pthread_mutex_unlock(&args->entrance->gate.mutex);
+
 
         } else {
             update_sign(&args->entrance->sign, 'X');

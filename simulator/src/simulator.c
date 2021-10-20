@@ -36,8 +36,6 @@ void *run_gates(void *gate_arg) {
     gate_t *gate;
     gate = (gate_t *) gate_arg;
     
-    
-
     // always keep gates alive
     while (true) {
 
@@ -46,14 +44,15 @@ void *run_gates(void *gate_arg) {
         while (gate->status != 'R' && gate->status != 'L') {
             pthread_cond_wait(&gate->cond, &gate->mutex);
         }
-        pthread_mutex_unlock(&gate->mutex);
         // sleep then change gate state accordingly
-        ms_sleep(10);
-        pthread_mutex_lock(&gate->mutex);
         if (gate->status == 'R') {
-            gate->status = 'O';
-        } else {
-            gate->status = 'C';
+            pthread_mutex_unlock(&gate->mutex);
+            ms_sleep(10);
+            update_gate(gate, 'O');
+        } else if (gate->status == 'L') {
+            pthread_mutex_unlock(&gate->mutex);
+            ms_sleep(10);
+            update_gate(gate, 'C');
         }
         // signal to other threads that gate status has changed
         pthread_cond_broadcast(&gate->cond);
@@ -92,6 +91,7 @@ void *run_entrances(void *entrance_args) {
         
         // car was assigned a space, give the car a thread
         if (isdigit(args->entrance->sign.display)) {
+            pthread_mutex_unlock(&args->entrance->sign.mutex);
             // wait until gate is open
             pthread_mutex_lock(&args->entrance->gate.mutex);
             while (args->entrance->gate.status != 'O') {
@@ -99,11 +99,11 @@ void *run_entrances(void *entrance_args) {
             }
             pthread_mutex_unlock(&args->entrance->gate.mutex);
             // do stuff
+        } else {
+            pthread_mutex_unlock(&args->entrance->sign.mutex);
         }
 
-        // unlock mutexes, remove cars from queue and free queue memory.
-        pthread_mutex_unlock(&args->entrance->sign.mutex);
-
+        // remove cars from queue and free queue memory.
         queue_node_t *next = args->queue->head->next;
         free(args->queue->head);
         args->queue->head = next;
