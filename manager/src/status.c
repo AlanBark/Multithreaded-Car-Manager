@@ -20,7 +20,6 @@ Most of the below code is just a means to display pretty output
 And display without flickering
  */
 void *update_status_display(void *status_args) {
-
     status_args_t *args;
     args = (status_args_t*) status_args;
 
@@ -74,9 +73,12 @@ void *update_status_display(void *status_args) {
 
     length += sprintf(buffer+length, "* +-------+--------+------+----------+----------+                             *\n\
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\n");
-        system("clear");
+        // system("clear");
+        // reset cursor to top left of screen
+        // not as portable but doesn't flicker
+        printf("\033[2J\033[1;1H");
         printf(buffer);
-        ms_sleep(50);
+        ms_sleep(1);
     }
 }
 

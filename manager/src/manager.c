@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -6,6 +7,7 @@
 #include "shared_memory.h"
 #include "plate_table.h"
 #include "status.h"
+#include "util.h"
 
 #define SHARED_NAME "PARKING"
 
@@ -14,24 +16,82 @@
 #define LEVEL_COUNT 5
 #define CARS_PER_LEVEL 20
 
-#define BUCKETS 100000
+#define BUCKETS 10000000
 
 struct entrance_args {
     htab_t plates;
     entrance_t *entrance;
 };
 
+typedef struct gate_args {
+    gate_t *gate;
+    bool timer_running;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+} gate_args_t;
+
+// Controls the lowering of boom gates after 20ms.
+void *run_gates(void *gate_args) {
+    gate_args_t *args;
+    args = (gate_args_t *)gate_args;
+    gate_t *gate = args->gate;
+
+    pthread_mutex_lock(&args->mutex);
+    
+    // gate always alive
+    while (true) {
+        // block thread until status is set to open.
+        while(!args->timer_running) {
+            pthread_cond_wait(&args->cond, &args->mutex);
+        }
+        // timer should be running now
+        ms_sleep(20);
+
+        args->timer_running = false;
+
+        update_gate(gate, 'L');
+    }
+}
+
 /* Reads entrance input and checks against the list of accepted plates.*/
 void* run_entrances(void *entrance_args) {
     struct entrance_args *args;
     args = (struct entrance_args*) entrance_args;
+
+    gate_args_t gate_args;
+    gate_args.gate = &args->entrance->gate;
+    gate_args.timer_running = false;
+    pthread_mutex_init(&gate_args.mutex, NULL);
+    pthread_cond_init(&gate_args.cond, NULL);
+
+    pthread_t gate_tid;
+    pthread_create(&gate_tid, NULL, run_gates, (void*) &gate_args);
     
     // aquire mutex for duration of loop - unlocked by wait only
     pthread_mutex_lock(&args->entrance->lpr.mutex);
     while (true) {
         if (htab_find(&args->plates, args->entrance->lpr.license_plate) != NULL) {
-            // @TODO Boom gates, find appropriate level.
-            update_sign(&args->entrance->sign, 1);
+            // car valid. Signal the car where to go and start boom gate process if not already opened.
+
+            update_sign(&args->entrance->sign, '1');
+
+            // open boom gate logic
+            pthread_mutex_lock(&args->entrance->gate.mutex);
+            // Continue waiting until gate is open
+            while (args->entrance->gate.status != 'O') {
+                // if gate is set to C, set to R and signal simulator
+                if (args->entrance->gate.status == 'C') {
+                    args->entrance->gate.status = 'R';
+                    pthread_cond_broadcast(&args->entrance->gate.cond);
+                }
+                pthread_cond_wait(&args->entrance->gate.cond, &args->entrance->gate.mutex);
+            }
+            pthread_mutex_lock(&gate_args.mutex);
+            gate_args.timer_running = true;
+            pthread_cond_signal(&gate_args.cond);
+            pthread_mutex_unlock(&gate_args.mutex);
+            pthread_mutex_unlock(&args->entrance->gate.mutex);
+
         } else {
             update_sign(&args->entrance->sign, 'X');
         }

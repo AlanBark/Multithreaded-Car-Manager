@@ -4,6 +4,8 @@
 
 void initialize_gate(gate_t *gate) {
 
+    gate->status = 'C';
+
     pthread_mutexattr_t mutexAttr;
     pthread_mutexattr_init(&mutexAttr);
     pthread_mutexattr_setpshared(&mutexAttr, 1);
@@ -19,13 +21,12 @@ void update_gate(gate_t* gate, char status) {
     
     pthread_mutex_lock(&gate->mutex);
     gate->status = status;
-    pthread_cond_signal(&gate->cond);
+    pthread_cond_broadcast(&gate->cond);
     pthread_mutex_unlock(&gate->mutex);
 
 }
 
 /* get gate details for status display */
-// @TODO AFTER GATE IMPLEMENT
 char get_gate(gate_t* gate) {
     pthread_mutex_lock(&gate->mutex);
     char status;

@@ -32,9 +32,44 @@ void *run_car(void *car_args) {
     pthread_exit(NULL);
 }
 
+void *run_gates(void *gate_arg) {
+    gate_t *gate;
+    gate = (gate_t *) gate_arg;
+    
+    
+
+    // always keep gates alive
+    while (true) {
+
+        pthread_mutex_lock(&gate->mutex);
+        // sleep until gates are either R or L
+        while (gate->status != 'R' && gate->status != 'L') {
+            pthread_cond_wait(&gate->cond, &gate->mutex);
+        }
+        pthread_mutex_unlock(&gate->mutex);
+        // sleep then change gate state accordingly
+        ms_sleep(10);
+        pthread_mutex_lock(&gate->mutex);
+        if (gate->status == 'R') {
+            gate->status = 'O';
+        } else {
+            gate->status = 'C';
+        }
+        // signal to other threads that gate status has changed
+        pthread_cond_broadcast(&gate->cond);
+        // when looping back to beginning, gate status has changed and 
+        // thread will sleep as it will not be R or L
+        pthread_mutex_unlock(&gate->mutex);
+    }
+    pthread_exit(NULL);
+}
+
 void *run_entrances(void *entrance_args) {
     entrance_args_t *args;
     args = (entrance_args_t*) entrance_args;
+
+    pthread_t gate_tid;
+    pthread_create(&gate_tid, NULL, run_gates, (void*) &args->entrance->gate);
     
     // entrance stays alive until program ends.
     pthread_mutex_lock(&args->queue->mutex);
@@ -57,13 +92,18 @@ void *run_entrances(void *entrance_args) {
         
         // car was assigned a space, give the car a thread
         if (isdigit(args->entrance->sign.display)) {
+            // wait until gate is open
+            pthread_mutex_lock(&args->entrance->gate.mutex);
+            while (args->entrance->gate.status != 'O') {
+                pthread_cond_wait(&args->entrance->gate.cond, &args->entrance->gate.mutex);
+            }
+            pthread_mutex_unlock(&args->entrance->gate.mutex);
             // do stuff
         }
 
         // unlock mutexes, remove cars from queue and free queue memory.
         pthread_mutex_unlock(&args->entrance->sign.mutex);
 
-        //printf("Freeing %s at addr %p\n", args->queue->head->car.license_plate, (void *)args->queue->head);
         queue_node_t *next = args->queue->head->next;
         free(args->queue->head);
         args->queue->head = next;

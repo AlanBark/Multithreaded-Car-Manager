@@ -13,6 +13,6 @@ typedef struct gate {
 
 void initialize_gate(gate_t*);
 
-void update_status(gate_t*, char);
+void update_gate(gate_t*, char);
 
 char get_gate(gate_t* gate);
