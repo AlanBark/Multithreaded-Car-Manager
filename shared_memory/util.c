@@ -5,7 +5,7 @@
 
 /* Sleeps thread for a specified amount of millliseconds */
 void ms_sleep(long msec) {
-    msec = msec * 100; //@TODO todo tag so i remember to remove this
+    // msec = msec * 100; //@TODO todo tag so i remember to remove this
     struct timespec ts;
     ts.tv_sec = msec / 1000;
     ts.tv_nsec = (msec % 1000) * 1000000;

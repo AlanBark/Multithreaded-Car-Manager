@@ -75,10 +75,10 @@ void *update_status_display(void *status_args) {
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\n");
         // system("clear");
         // reset cursor to top left of screen
-        // not as portable but doesn't flicker
+        // not as portable as system("clear") but doesn't flicker
         printf("\033[2J\033[1;1H");
         printf(buffer);
-        ms_sleep(1);
+        ms_sleep(50);
     }
 }
 

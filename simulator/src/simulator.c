@@ -45,20 +45,13 @@ void *run_gates(void *gate_arg) {
             pthread_cond_wait(&gate->cond, &gate->mutex);
         }
         // sleep then change gate state accordingly
+        pthread_mutex_unlock(&gate->mutex);
+        ms_sleep(10);
         if (gate->status == 'R') {
-            pthread_mutex_unlock(&gate->mutex);
-            ms_sleep(10);
             update_gate(gate, 'O');
         } else if (gate->status == 'L') {
-            pthread_mutex_unlock(&gate->mutex);
-            ms_sleep(10);
             update_gate(gate, 'C');
         }
-        // signal to other threads that gate status has changed
-        pthread_cond_broadcast(&gate->cond);
-        // when looping back to beginning, gate status has changed and 
-        // thread will sleep as it will not be R or L
-        pthread_mutex_unlock(&gate->mutex);
     }
     pthread_exit(NULL);
 }
