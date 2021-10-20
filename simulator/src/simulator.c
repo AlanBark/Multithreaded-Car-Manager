@@ -8,10 +8,7 @@
 #include <unistd.h>
 
 #include "car.h"
-#include "entrance.h"
 #include "queue.h"
-#include "exit.h"
-#include "level.h"
 #include "shared_memory.h"
 #include "util.h"
 
@@ -20,17 +17,9 @@
 /* Constants controlling parking lot size*/
 
 #define LEVEL_COUNT 5
-
 #define ENTRANCE_COUNT 5
-
 #define EXIT_COUNT 5
-
-/* Amount of cars to malloc for the first queue */
-#define INITIAL_QUEUE_SIZE 50
-
-void *run_car(void *car_args) {
-    pthread_exit(NULL);
-}
+#define CARS_PER_LEVEL 20
 
 void *run_gates(void *gate_arg) {
     gate_t *gate;
@@ -82,16 +71,20 @@ void *run_entrances(void *entrance_args) {
         pthread_mutex_lock(&args->entrance->sign.mutex);
         pthread_cond_wait(&args->entrance->sign.cond, &args->entrance->sign.mutex);
         
-        // car was assigned a space, give the car a thread
+        /* Check if car was assigned a space */
         if (isdigit(args->entrance->sign.display)) {
+            int level = args->entrance->sign.display - '0';
             pthread_mutex_unlock(&args->entrance->sign.mutex);
-            // wait until gate is open
+
+            /* Wait for gate to open before assigning a thread to the car */
             pthread_mutex_lock(&args->entrance->gate.mutex);
             while (args->entrance->gate.status != 'O') {
                 pthread_cond_wait(&args->entrance->gate.cond, &args->entrance->gate.mutex);
             }
             pthread_mutex_unlock(&args->entrance->gate.mutex);
-            // do stuff
+            
+            /* Car has made it through the gate, request for a thread to handle the car */
+            add_car_request(args->car_request_queue, args->queue->head->car, level);
         } else {
             pthread_mutex_unlock(&args->entrance->sign.mutex);
         }
@@ -127,6 +120,26 @@ int main(int argc, char **argv) {
     /* Thread ID setup */
     pthread_t entrance_threads[ENTRANCE_COUNT];
     pthread_t car_factory_tid;
+    
+    /* create enough blocked threads to handle max capacity carpark */
+    int max_cars = LEVEL_COUNT * CARS_PER_LEVEL;
+    pthread_t car_requests[max_cars];
+
+    car_request_queue_t car_request_queue;
+    pthread_cond_init(&car_request_queue.cond, NULL);
+    pthread_mutex_init(&car_request_queue.mutex, NULL);
+    car_request_queue.head = NULL;
+    car_request_queue.tail  = NULL;
+
+    car_request_args_t car_request_args;
+    car_request_args.car_request_queue = &car_request_queue;
+    car_request_args.data = shm.data;
+    car_request_args.rng_mutex = &rng_mutex;
+    car_request_args.exit_count = EXIT_COUNT;
+
+    for (int i = 0; i < max_cars; i++) {
+        pthread_create(&car_requests[i], NULL, handle_car_requests, (void *)&car_request_args);
+    }
 
     /* Entrance Queue Setup */
     queue_t **entrance_queues = malloc(sizeof(queue_t*)*ENTRANCE_COUNT);
@@ -138,7 +151,7 @@ int main(int argc, char **argv) {
 
         entrance_args[i].queue = entrance_queues[i];
         entrance_args[i].entrance = &shm.data->entrance_collection[i];
-
+        entrance_args[i].car_request_queue = &car_request_queue;
         pthread_create(&entrance_threads[i], NULL, run_entrances, (void *)&entrance_args[i]);
     }
 

@@ -97,7 +97,6 @@ int main(int argc, char **argv) {
     }
 
     /* Construct hash table from plates.txt*/
-
     htab_t plates;
     if (!htab_init(&plates, BUCKETS))
     {

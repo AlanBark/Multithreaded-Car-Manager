@@ -39,6 +39,8 @@ typedef struct entrance_args {
 
     entrance_t *entrance;
 
+    car_request_queue_t *car_request_queue;
+
 } entrance_args_t;
 
 void queue_initialize(queue_t *queue);
