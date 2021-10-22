@@ -68,7 +68,11 @@ void *update_status_display(void *status_args) {
         char plate[7];
         get_plate(&data->level_collection[i].lpr, plate);
         int current_cars = get_current_cars(level_info[i]);
-        length += sprintf(buffer+length, "* | %d     | %s | %d    | %d       | %d        |                             *\n", i+1, plate, current_cars, cars_per_level, data->level_collection[i].sensor);
+        if (current_cars > 9) {
+            length += sprintf(buffer+length, "* | %d     | %s | %d   | %d       | %d        |                             *\n", i+1, plate, current_cars, cars_per_level, data->level_collection[i].sensor);
+        } else {
+            length += sprintf(buffer+length, "* | %d     | %s | %d    | %d       | %d        |                             *\n", i+1, plate, current_cars, cars_per_level, data->level_collection[i].sensor);
+        }
     }
 
     length += sprintf(buffer+length, "* +-------+--------+------+----------+----------+                             *\n\
@@ -85,5 +89,5 @@ void *update_status_display(void *status_args) {
 void initialise_level_info(level_info_t *level_info, int max_cars) {
     pthread_mutex_init(&level_info->mutex, NULL);
     level_info->current_cars = 0;
-    level_info->cars = malloc(sizeof(car_t) * max_cars);
+    level_info->head = NULL;
 }

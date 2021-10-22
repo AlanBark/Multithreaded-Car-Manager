@@ -121,8 +121,9 @@ int main(int argc, char **argv) {
     pthread_t entrance_threads[ENTRANCE_COUNT];
     pthread_t car_factory_tid;
     
-    /* create enough blocked threads to handle max capacity carpark */
-    int max_cars = LEVEL_COUNT * CARS_PER_LEVEL;
+    /* create enough blocked threads to handle max capacity carpark, 
+    plus some more for cars in transit between exits/entrances */
+    int max_cars = LEVEL_COUNT * (CARS_PER_LEVEL + 10);
     pthread_t car_requests[max_cars];
 
     car_request_queue_t car_request_queue;

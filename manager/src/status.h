@@ -7,9 +7,16 @@ typedef struct car {
     time_t time_entered;
 } car_t;
 
+/* Car object for level info */
+typedef struct car_node {
+    car_t car;
+    struct car_node *next;
+} car_node_t;
+
+/* Hold information that the manager sees about each level */
 typedef struct level_info {
     int current_cars;
-    car_t **cars;
+    car_node_t *head;
     pthread_mutex_t mutex;
 } level_info_t;
 
