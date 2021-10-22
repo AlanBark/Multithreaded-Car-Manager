@@ -118,11 +118,11 @@ void *handle_car_requests(void *car_request_args) {
         update_plate(&data->exit_collection[exit - 1].lpr, current_car->license_plate);
 
         /* Wait for exit boom gates to open then leave */
-        // pthread_mutex_lock(&data->exit_collection[exit - 1].gate.mutex);
-        // while (&data->exit_collection[exit - 1].gate.status != 'O') {
-        //     pthread_cond_wait(&data->exit_collection[exit - 1].gate.cond, &data->exit_collection[exit - 1].gate.mutex);
-        // }
-        // pthread_mutex_unlock(&data->exit_collection[exit - 1].gate.mutex);
+        pthread_mutex_lock(&data->exit_collection[exit - 1].gate.mutex);
+        while (data->exit_collection[exit - 1].gate.status != 'O') {
+            pthread_cond_wait(&data->exit_collection[exit - 1].gate.cond, &data->exit_collection[exit - 1].gate.mutex);
+        }
+        pthread_mutex_unlock(&data->exit_collection[exit - 1].gate.mutex);
 
         /* Clean up before waiting for another car request */
         free(current_car);

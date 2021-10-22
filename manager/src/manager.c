@@ -247,17 +247,39 @@ void *run_exits(void *exit_args) {
     exit_t *exit;
     exit = args->exit;
 
+    pthread_t gate_tid;
+    pthread_create(&gate_tid, NULL, run_gates, (void*) &exit->gate);
+
     char empty_plate[6];
     memset(empty_plate, 0, sizeof(empty_plate));
     
     while (true) {
         pthread_mutex_lock(&exit->lpr.mutex);
         
-        while (plate_compare(exit->lpr.license_plate, empty_plate)) {
-            pthread_cond_wait(&exit->lpr.cond, &exit->lpr.mutex);
+        pthread_cond_wait(&exit->lpr.cond, &exit->lpr.mutex);
+        
+        if (!plate_compare(exit->lpr.license_plate, empty_plate)) {
+            calculate_revenue(info, exit->lpr.license_plate);
+            pthread_mutex_unlock(&exit->lpr.mutex);
+
+            // Boom gate logic
+            pthread_mutex_lock(&exit->gate.mutex);
+            if (exit->gate.status == 'C') {
+                exit->gate.status = 'R';
+                pthread_cond_broadcast(&exit->gate.cond);
+            } else {
+                // Condition where gate is in lowering stage and must be re-opened
+                while(exit->gate.status == 'L') {
+                    pthread_cond_wait(&exit->gate.cond, &exit->gate.mutex);
+                }
+                // after gate has changed from 'L', check again that is 'C'.
+                if (exit->gate.status == 'C') {
+                    exit->gate.status = 'R';
+                    pthread_cond_broadcast(&exit->gate.cond);
+                }
+            }
         }
-        calculate_revenue(info, exit->lpr.license_plate);
-        pthread_mutex_unlock(&exit->lpr.mutex);
+        pthread_mutex_unlock(&exit->gate.mutex);
     }
 
     pthread_exit(NULL);

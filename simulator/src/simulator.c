@@ -156,6 +156,12 @@ int main(int argc, char **argv) {
         pthread_create(&entrance_threads[i], NULL, run_entrances, (void *)&entrance_args[i]);
     }
 
+    /* Exit boom gates setup */
+    pthread_t exit_gates[EXIT_COUNT];
+    for (int i = 0; i < EXIT_COUNT; i++) {
+        pthread_create(&exit_gates[i], NULL, run_gates, (void *)&shm.data->exit_collection[i].gate);
+    }
+
     /* Car factory setup */
     car_args_t car_args;
     car_args.queues = entrance_queues;

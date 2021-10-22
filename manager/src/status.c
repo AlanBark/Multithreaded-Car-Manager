@@ -86,7 +86,7 @@ void *update_status_display(void *status_args) {
         // not as portable as system("clear") but doesn't flicker
         printf("\033[2J\033[1;1H");
         printf(buffer);
-        ms_sleep(50);
+        ms_sleep(1);
     }
 }
 
