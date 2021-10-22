@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Werror -Wall -pedantic -std=gnu99 -g
-LDFLAGS=-pthread -lrt
+LDFLAGS=-pthread -lrt -lm
 
 TARGET_EXEC ?= simulator.out
 

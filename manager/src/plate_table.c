@@ -19,39 +19,6 @@ bool htab_init(htab_t *h, size_t n)
     return h->buckets != 0;
 }
 
-void item_print(item_t *i)
-{
-    printf("key=%s", i->key);
-}
-
-// Print the hash table.
-// pre: true
-// post: hash table is printed to screen
-void htab_print(htab_t *h)
-{
-    printf("hash table with %ld buckets\n", h->size);
-    for (size_t i = 0; i < h->size; ++i)
-    {
-        printf("bucket %ld: ", i);
-        if (h->buckets[i] == NULL)
-        {
-            printf("empty\n");
-        }
-        else
-        {
-            for (item_t *j = h->buckets[i]; j != NULL; j = j->next)
-            {
-                item_print(j);
-                if (j->next != NULL)
-                {
-                    printf(" -> ");
-                }
-            }
-            printf("\n");
-        }
-    }
-}
-
 // The Bernstein hash function.
 // A very fast hash function that works well in practice.
 size_t djb_hash(char *s)

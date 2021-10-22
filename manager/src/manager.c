@@ -18,10 +18,16 @@
 
 #define BUCKETS 10000000
 
+typedef struct exit_args {
+    revenue_info_t *revenue_info;
+    exit_t *exit;
+} exit_args_t;
+
 struct entrance_args {
     htab_t plates;
     entrance_t *entrance;
     level_info_t **level_info;
+    revenue_info_t *revenue_info;
 };
 
 typedef struct level_args {
@@ -72,6 +78,53 @@ bool update_level(level_info_t *level_info, char plate[6]) {
             return true;
         }
     }
+}
+
+void revenue_info_add(revenue_info_t *info, char plate[6]) {
+    pthread_mutex_lock(&info->mutex);
+    car_node_t *node = malloc(sizeof(car_node_t));
+    memcpy(node->car.plate, plate, 6);
+    node->car.time_entered = get_current_time_ms();
+    if (info->head == NULL) {
+        info->head = node;
+    } else {
+        node->next = info->head;
+        info->head = node;
+    }
+    pthread_mutex_unlock(&info->mutex);
+}
+
+/* Calculates the amount of money a car pays when leaving. 
+Removes car from revenue list. And updates revenue total */
+void calculate_revenue(revenue_info_t *info, char plate[6]) {
+
+    pthread_mutex_lock(&info->mutex);
+    car_node_t *curr = info->head;
+    car_node_t *prev = NULL;
+    
+    long current_time_ms = get_current_time_ms();
+
+    // Special case, head contains the plate that is looking for.
+    if (curr != NULL && plate_compare(curr->car.plate, plate)) {
+        long time_spent_parked = current_time_ms - curr->car.time_entered;
+        long cost = time_spent_parked * 5;
+        info->revenue += cost;
+        info->head = curr->next;
+        free(curr);
+    } else {
+        while (curr != NULL && !plate_compare(curr->car.plate, plate)) {
+            prev = curr;
+            curr = curr->next;
+        }
+        if (curr != NULL) {
+            long time_spent_parked = current_time_ms - curr->car.time_entered;
+            long cost = time_spent_parked * 5;
+            info->revenue += cost;
+            prev->next = curr->next;
+            free(curr);
+        }
+    }
+    pthread_mutex_unlock(&info->mutex);
 }
 
 /* Gets the level that the current car should go to. Returns -1 if park is full. */
@@ -158,6 +211,8 @@ void* run_entrances(void *entrance_args) {
                 char level_char = level + '0';
                 update_sign(&args->entrance->sign, level_char);
 
+                revenue_info_add(args->revenue_info, args->entrance->lpr.license_plate);
+
                 // Boom gate logic
                 pthread_mutex_lock(&args->entrance->gate.mutex);
                 if (args->entrance->gate.status == 'C') {
@@ -181,6 +236,30 @@ void* run_entrances(void *entrance_args) {
         }
         pthread_cond_wait(&args->entrance->lpr.cond, &args->entrance->lpr.mutex);
     }
+    pthread_exit(NULL);
+}
+
+void *run_exits(void *exit_args) {
+    exit_args_t *args;
+    args = (exit_args_t*) exit_args;
+    revenue_info_t *info;
+    info = args->revenue_info;
+    exit_t *exit;
+    exit = args->exit;
+
+    char empty_plate[6];
+    memset(empty_plate, 0, sizeof(empty_plate));
+    
+    while (true) {
+        pthread_mutex_lock(&exit->lpr.mutex);
+        
+        while (plate_compare(exit->lpr.license_plate, empty_plate)) {
+            pthread_cond_wait(&exit->lpr.cond, &exit->lpr.mutex);
+        }
+        calculate_revenue(info, exit->lpr.license_plate);
+        pthread_mutex_unlock(&exit->lpr.mutex);
+    }
+
     pthread_exit(NULL);
 }
 
@@ -212,6 +291,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
     
+    /* Read plates.txt into a hash table */
     while (getline(&line, &line_len, fp) != -1) {
         // ignore last byte
         char *plate = malloc(sizeof(char)*6);
@@ -222,21 +302,23 @@ int main(int argc, char **argv) {
         }
     }
 
+    pthread_t exit_threads[EXIT_COUNT];
+    pthread_t entrance_threads[ENTRANCE_COUNT];
+    pthread_t levels_tid[LEVEL_COUNT];
+    pthread_t status_thread;
+
     level_info_t **levels = malloc(sizeof(level_info_t*) * LEVEL_COUNT);
     for (int i = 0; i < LEVEL_COUNT; i++) {
         levels[i] = malloc(sizeof(level_info_t));
         initialise_level_info(levels[i], CARS_PER_LEVEL);
     }
 
-    pthread_t levels_tid[LEVEL_COUNT];
+    revenue_info_t revenue;
+    pthread_mutex_init(&revenue.mutex, NULL);
+    revenue.head = NULL;
+    revenue.revenue = 0;
+    
     level_args_t level_args[LEVEL_COUNT];
-    for (int i = 0; i < LEVEL_COUNT; i++) {
-        level_args[i].level = levels[i];
-        level_args[i].lpr = &shm.data->level_collection[i].lpr;
-        pthread_create(&levels_tid[i], NULL, run_level, (void *)&level_args[i]);
-    }
-
-    float revenue = 0;
 
     status_args_t status_args;
     status_args.num_entrances = ENTRANCE_COUNT;
@@ -246,19 +328,32 @@ int main(int argc, char **argv) {
     status_args.cars_per_level = CARS_PER_LEVEL;
     status_args.data = shm.data;
     status_args.revenue = &revenue;
-    pthread_t status_thread;
 
+    struct entrance_args entrance_args[ENTRANCE_COUNT];
+    exit_args_t exit_args[EXIT_COUNT];
+    
+    for (int i = 0; i < LEVEL_COUNT; i++) {
+        level_args[i].level = levels[i];
+        level_args[i].lpr = &shm.data->level_collection[i].lpr;
+        pthread_create(&levels_tid[i], NULL, run_level, (void *)&level_args[i]);
+    }
+    
     pthread_create(&status_thread, NULL, update_status_display, (void*)&status_args);
 
-    pthread_t entrance_threads[ENTRANCE_COUNT];
-    struct entrance_args args[ENTRANCE_COUNT];
+    // create enough threads to handle each exit
+    for (int i = 0; i < EXIT_COUNT; i++) {
+        exit_args[i].exit = &shm.data->exit_collection[i];
+        exit_args[i].revenue_info = &revenue;
+        pthread_create(&exit_threads[i], NULL, run_exits, (void *)&exit_args[i]);
+    }
 
     // create enough threads to handle each entrance
     for (int i = 0; i < ENTRANCE_COUNT; i++) {
-        args[i].entrance = &shm.data->entrance_collection[i];
-        args[i].plates = plates;
-        args[i].level_info = levels;
-        pthread_create(&entrance_threads[i], NULL, run_entrances, (void *)&args[i]);
+        entrance_args[i].entrance = &shm.data->entrance_collection[i];
+        entrance_args[i].plates = plates;
+        entrance_args[i].level_info = levels;
+        entrance_args[i].revenue_info = &revenue;
+        pthread_create(&entrance_threads[i], NULL, run_entrances, (void *)&entrance_args[i]);
     }
 
     //@todo

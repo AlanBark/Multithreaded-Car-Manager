@@ -16,9 +16,6 @@ struct item
     item_t *next;
 };
 
-
-void item_print(item_t *i);
-
 // A hash table mapping a string to an integer.
 typedef struct htab htab_t;
 struct htab
@@ -26,8 +23,6 @@ struct htab
     item_t **buckets;
     size_t size;
 };
-
-void htab_print(htab_t *h);
 
 // Initialise a new hash table with n buckets.
 // pre: true

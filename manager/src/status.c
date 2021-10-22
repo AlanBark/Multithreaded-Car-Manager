@@ -29,18 +29,22 @@ void *update_status_display(void *status_args) {
     int num_exits = args->num_exits;
     int cars_per_level = args->cars_per_level;
     level_info_t **level_info = args->level_info;
-    float *revenue = args->revenue;
+    revenue_info_t *revenue = args->revenue;
 
     while (true) {
         int length = 0;
         int buffer_len = 1400 + (80 * num_entrances) + (80 * num_levels);
         char buffer[buffer_len];
 
+        pthread_mutex_lock(&revenue->mutex);
+        float revenue_dollars = revenue->revenue / 100.0;
+        pthread_mutex_unlock(&revenue->mutex);
+
     length += sprintf(buffer+length, "* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\n\
 * STATUS FOR ENTRANCES            STATUS FOR EXITS         REVENUE TOTAL      *\n\
 * +-------------+------+------+   +-------------+------+   +----------------+ *\n\
 * | ID | LPR    | BOOM | SIGN |   | ID | LPR    | BOOM |   | $%.2f\n\
-* +----+--------+------+------+   +----+--------+------+   +----------------+ *\n", *revenue);
+* +----+--------+------+------+   +----+--------+------+   +----------------+ *\n", revenue_dollars);
 
     for (int i = 0; i < num_entrances; i++) {
         char plate[7];
