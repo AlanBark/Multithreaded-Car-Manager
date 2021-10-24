@@ -22,7 +22,6 @@ void *generate_cars(void *car_args) {
 
         car_t car;
 
-        // @TODO make this less shit
         car.license_plate[0] = get_random_number(rng_mutex, 48, 57);
         car.license_plate[1] = get_random_number(rng_mutex, 48, 57);
         car.license_plate[2] = get_random_number(rng_mutex, 48, 57);

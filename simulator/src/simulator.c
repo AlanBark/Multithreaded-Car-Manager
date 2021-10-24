@@ -21,6 +21,41 @@
 #define EXIT_COUNT 5
 #define CARS_PER_LEVEL 20
 
+// 0 for no fire, 1 for fixed temp fire, 2 for rate of rise fire
+#define SIMULATE_FIRE 0
+
+typedef struct temp_args {
+    shared_data_t *data;
+    pthread_mutex_t *rng_mutex;
+} temp_args_t;
+
+void *run_temperature(void *temp_args) {
+    temp_args_t *args;
+    args = (temp_args_t *)temp_args;
+
+    if (SIMULATE_FIRE == 2) {
+        int initial_temp = 18;
+        while (true) {
+            ms_sleep(get_random_number(args->rng_mutex, 1,5));
+            for (int i = 0; i < LEVEL_COUNT; i++) {
+                args->data->level_collection[i].sensor = initial_temp;
+            }
+            initial_temp++;
+        }
+    } else {
+        while (true) {
+            ms_sleep(get_random_number(args->rng_mutex, 1,5));
+            for (int i = 0; i < LEVEL_COUNT; i++) {
+                if (SIMULATE_FIRE == 1) {
+                    args->data->level_collection[i].sensor = get_random_number(args->rng_mutex, 58, 65);
+                } else {
+                    args->data->level_collection[i].sensor = get_random_number(args->rng_mutex, 22, 26);
+                }
+            }
+        }
+    }
+}
+
 void *run_gates(void *gate_arg) {
     gate_t *gate;
     gate = (gate_t *) gate_arg;
@@ -120,6 +155,9 @@ int main(int argc, char **argv) {
     /* Thread ID setup */
     pthread_t entrance_threads[ENTRANCE_COUNT];
     pthread_t car_factory_tid;
+
+    /* Temperature simulation thread */
+    pthread_t temperature_thread;
     
     /* create enough blocked threads to handle max capacity carpark, 
     plus some more for cars in transit between exits/entrances */
@@ -141,6 +179,12 @@ int main(int argc, char **argv) {
     for (int i = 0; i < max_cars; i++) {
         pthread_create(&car_requests[i], NULL, handle_car_requests, (void *)&car_request_args);
     }
+
+    temp_args_t temp_args;
+    temp_args.data = shm.data;
+    temp_args.rng_mutex = &rng_mutex;
+
+    pthread_create(&temperature_thread, NULL, run_temperature, (void *)&temp_args);
 
     /* Entrance Queue Setup */
     queue_t **entrance_queues = malloc(sizeof(queue_t*)*ENTRANCE_COUNT);

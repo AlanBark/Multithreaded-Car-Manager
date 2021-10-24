@@ -73,9 +73,9 @@ void *update_status_display(void *status_args) {
         get_plate(&data->level_collection[i].lpr, plate);
         int current_cars = get_current_cars(level_info[i]);
         if (current_cars > 9) {
-            length += sprintf(buffer+length, "* | %d     | %s | %d   | %d       | %d        |                             *\n", i+1, plate, current_cars, cars_per_level, data->level_collection[i].sensor);
+            length += sprintf(buffer+length, "* | %d     | %s | %d   | %d       | %d       |                             *\n", i+1, plate, current_cars, cars_per_level, data->level_collection[i].sensor);
         } else {
-            length += sprintf(buffer+length, "* | %d     | %s | %d    | %d       | %d        |                             *\n", i+1, plate, current_cars, cars_per_level, data->level_collection[i].sensor);
+            length += sprintf(buffer+length, "* | %d     | %s | %d    | %d       | %d       |                             *\n", i+1, plate, current_cars, cars_per_level, data->level_collection[i].sensor);
         }
     }
 
@@ -86,7 +86,7 @@ void *update_status_display(void *status_args) {
         // not as portable as system("clear") but doesn't flicker
         printf("\033[2J\033[1;1H");
         printf(buffer);
-        ms_sleep(1);
+        ms_sleep(50);
     }
 }
 

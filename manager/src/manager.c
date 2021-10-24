@@ -11,16 +11,20 @@
 
 #define SHARED_NAME "PARKING"
 
+#define BILLING_FILE "Billing.txt"
+
 #define ENTRANCE_COUNT 5
 #define EXIT_COUNT 5
 #define LEVEL_COUNT 5
 #define CARS_PER_LEVEL 20
 
-#define BUCKETS 10000000
+/* Change reasonably based on size of plates.txt*/
+#define BUCKETS 10000
 
 typedef struct exit_args {
     revenue_info_t *revenue_info;
     exit_t *exit;
+    pthread_mutex_t *file_mutex;
 } exit_args_t;
 
 struct entrance_args {
@@ -96,18 +100,19 @@ void revenue_info_add(revenue_info_t *info, char plate[6]) {
 
 /* Calculates the amount of money a car pays when leaving. 
 Removes car from revenue list. And updates revenue total */
-void calculate_revenue(revenue_info_t *info, char plate[6]) {
+int calculate_revenue(revenue_info_t *info, char plate[6]) {
 
     pthread_mutex_lock(&info->mutex);
     car_node_t *curr = info->head;
     car_node_t *prev = NULL;
     
     long current_time_ms = get_current_time_ms();
+    int cost, time_spent_parked;
 
     // Special case, head contains the plate that is looking for.
     if (curr != NULL && plate_compare(curr->car.plate, plate)) {
-        long time_spent_parked = current_time_ms - curr->car.time_entered;
-        long cost = time_spent_parked * 5;
+        time_spent_parked = current_time_ms - curr->car.time_entered;
+        cost = time_spent_parked * 5;
         info->revenue += cost;
         info->head = curr->next;
         free(curr);
@@ -117,14 +122,15 @@ void calculate_revenue(revenue_info_t *info, char plate[6]) {
             curr = curr->next;
         }
         if (curr != NULL) {
-            long time_spent_parked = current_time_ms - curr->car.time_entered;
-            long cost = time_spent_parked * 5;
+            time_spent_parked = current_time_ms - curr->car.time_entered;
+            cost = time_spent_parked * 5;
             info->revenue += cost;
             prev->next = curr->next;
             free(curr);
         }
     }
     pthread_mutex_unlock(&info->mutex);
+    return cost;
 }
 
 /* Gets the level that the current car should go to. Returns -1 if park is full. */
@@ -259,7 +265,11 @@ void *run_exits(void *exit_args) {
         pthread_cond_wait(&exit->lpr.cond, &exit->lpr.mutex);
         
         if (!plate_compare(exit->lpr.license_plate, empty_plate)) {
-            calculate_revenue(info, exit->lpr.license_plate);
+            // plate used to write to billing file. Needs to be null terminated.
+            char plate[7];
+            int cost = calculate_revenue(info, exit->lpr.license_plate);
+            memcpy(plate, exit->lpr.license_plate, 6);
+            plate[7] = '\0';
             pthread_mutex_unlock(&exit->lpr.mutex);
 
             // Boom gate logic
@@ -278,10 +288,21 @@ void *run_exits(void *exit_args) {
                     pthread_cond_broadcast(&exit->gate.cond);
                 }
             }
-        }
-        pthread_mutex_unlock(&exit->gate.mutex);
-    }
+            pthread_mutex_unlock(&exit->gate.mutex);
 
+            int dollars = cost / 100;
+            int cents = cost % 100;
+            
+            pthread_mutex_lock(args->file_mutex);
+            FILE *fp = fopen(BILLING_FILE, "a");
+
+            fprintf(fp, "%s $%d.%d\n",plate, dollars, cents);
+
+            fclose(fp);
+
+            pthread_mutex_unlock(args->file_mutex);
+        }
+    }
     pthread_exit(NULL);
 }
 
@@ -351,6 +372,7 @@ int main(int argc, char **argv) {
     status_args.data = shm.data;
     status_args.revenue = &revenue;
 
+    
     struct entrance_args entrance_args[ENTRANCE_COUNT];
     exit_args_t exit_args[EXIT_COUNT];
     
@@ -362,10 +384,14 @@ int main(int argc, char **argv) {
     
     pthread_create(&status_thread, NULL, update_status_display, (void*)&status_args);
 
+    pthread_mutex_t file_mutex;
+    pthread_mutex_init(&file_mutex, NULL);
+
     // create enough threads to handle each exit
     for (int i = 0; i < EXIT_COUNT; i++) {
         exit_args[i].exit = &shm.data->exit_collection[i];
         exit_args[i].revenue_info = &revenue;
+        exit_args[i].file_mutex = &file_mutex;
         pthread_create(&exit_threads[i], NULL, run_exits, (void *)&exit_args[i]);
     }
 
