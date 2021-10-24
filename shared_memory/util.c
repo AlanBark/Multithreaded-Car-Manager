@@ -15,6 +15,7 @@ void ms_sleep(long msec) {
     nanosleep(&ts, &ts);
 }
 
+/* Returns the current time specified by CLOCK_REALTIME in ms */
 long get_current_time_ms()
 {
     long ms;
@@ -31,6 +32,7 @@ long get_current_time_ms()
     return ms;
 }
 
+/* Generates a random number between minimum and maximum */
 int get_random_number(pthread_mutex_t *mutex, int minimum, int maximum) {
     pthread_mutex_lock(mutex);
     int number = rand();

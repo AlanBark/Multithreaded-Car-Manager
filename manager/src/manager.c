@@ -18,9 +18,10 @@
 #define LEVEL_COUNT 5
 #define CARS_PER_LEVEL 20
 
-/* Change reasonably based on size of plates.txt*/
+/* Change reasonably based on size of plates.txt */
 #define BUCKETS 10000
 
+/* Argument structs for exit threads */
 typedef struct exit_args {
     revenue_info_t *revenue_info;
     exit_t *exit;
@@ -49,8 +50,18 @@ bool plate_compare(char plate1[6], char plate2[6]) {
     return true;
 }
 
-/* If a matching plate is found on this level, the car is removed and true is returned.
-    Otherwise malloc a car node and add the given plates to the end of the linked list. */
+/* 
+ * Function update_level(): Update the internal list of cars for a level.
+ * 
+ * Algorithm: If a matching plate is found on this level, the car is removed 
+ *            from the internal listand true is returned. Otherwise, add the
+ *            car to the internal list and return false.
+ * Input:     Level_info object for the level to be updating. License plates of
+ *            Car to add/remove.
+ * Output:    True if car is removed, false if car is added.
+ * 
+ * Pre:       initialise_level_info(level_info);
+ */
 bool update_level(level_info_t *level_info, char plate[6]) {
     pthread_mutex_lock(&level_info->mutex);
     car_node_t *curr = level_info->head;
@@ -84,6 +95,16 @@ bool update_level(level_info_t *level_info, char plate[6]) {
     }
 }
 
+/* 
+ * Function revenue_info_add(): Add a car to the managers revenue info struct
+ * 
+ * Algorithm: Create a car object with the time_entered value set to the current
+ *            Time.
+ * Input:     Manager's revenue info struct, plates of car to add.
+ * Output:    None
+ *  
+ * Pre:       pthread_mutex_init(info->mutex)
+ */
 void revenue_info_add(revenue_info_t *info, char plate[6]) {
     pthread_mutex_lock(&info->mutex);
     car_node_t *node = malloc(sizeof(car_node_t));
@@ -98,8 +119,18 @@ void revenue_info_add(revenue_info_t *info, char plate[6]) {
     pthread_mutex_unlock(&info->mutex);
 }
 
-/* Calculates the amount of money a car pays when leaving. 
-Removes car from revenue list. And updates revenue total */
+/* 
+ * Function calculate_revenue(): Calculates the amount of money a car pays when leaving
+ * 
+ * Consumer to revenue_info_add()
+ * 
+ * Algorithm: Removes car from revenue list, updates revenue total, returns cost to 
+ *            The current car.
+ * Input:     Manager's revenue info struct, plates of car to add.
+ * Output:    Cost to the current car.
+ *  
+ * Pre:       revenue_info_add(plates[6]) has been called.
+ */
 int calculate_revenue(revenue_info_t *info, char plate[6]) {
 
     pthread_mutex_lock(&info->mutex);
@@ -133,7 +164,17 @@ int calculate_revenue(revenue_info_t *info, char plate[6]) {
     return cost;
 }
 
-/* Gets the level that the current car should go to. Returns -1 if park is full. */
+
+/* 
+ * Function get_level(): Determines which level the next car should go to.
+ * 
+ * Algorithm: Searches each level in ascending order and returns the level number
+ *            With the first available parking space.
+ * Input:     Array of level_info pointers.
+ * Output:    Level car should go to. Returns -1 if full.
+ *  
+ * Pre:       All levels have been initialised.
+ */
 int get_level(level_info_t **levels) {
     for (int i = 0; i < LEVEL_COUNT; i++) {
         pthread_mutex_lock(&levels[i]->mutex);
@@ -146,7 +187,15 @@ int get_level(level_info_t **levels) {
     return -1;
 }
 
-/* Handles incoming and outgoing cars per level. One thread per level. */
+/* 
+ * Function run_level(): Logic loop for each level thread.
+ * 
+ * Algorithm: Wait for non-empty plates on the level LPR. Call
+ *            update_level() on the plates received, and either increment
+ *            or decrement the number of cars currently on the level.
+ * Input:     A level_args_t pointer cast to a void*
+ * Output:    None
+ */
 void *run_level(void *level_args) {
     level_args_t *args;
     args = (level_args_t *) level_args;
@@ -177,7 +226,14 @@ void *run_level(void *level_args) {
     pthread_exit(NULL);
 }
 
-// Controls the lowering of boom gates after 20ms.
+/* 
+ * Function run_gates(): Logic loop for each boom gates thread.
+ * 
+ * Algorithm: Waits for gate to enter 'O' state. Sleeps for 20ms
+ *            then sets the gate to 'L' state.
+ * Input:     A gate_t pointer cast to a void*
+ * Output:    None
+ */
 void *run_gates(void *gate_arg) {
     gate_t *gate;
     gate = (gate_t *)gate_arg;
@@ -197,7 +253,17 @@ void *run_gates(void *gate_arg) {
     pthread_exit(NULL);
 }
 
-/* Reads entrance input and checks against the list of accepted plates.*/
+/* 
+ * Function run_entrances(): Logic loop for each entrance thread.
+ * 
+ * Algorithm: Creates a boom gate thread. Waits for a new plate to come from
+ *            The entrance LPR. If this plate is not listed in plates.txt,
+ *            Show the car an X and continue waiting. Otherwise, get and
+ *            display the level that the car should go to and set boom gates
+ *            to 'R' if 'C' or wait if 'L'
+ * Input:     An entrance_args_t pointer cast to a void*
+ * Output:    None
+ */
 void* run_entrances(void *entrance_args) {
     struct entrance_args *args;
     args = (struct entrance_args*) entrance_args;
@@ -245,6 +311,15 @@ void* run_entrances(void *entrance_args) {
     pthread_exit(NULL);
 }
 
+/* 
+ * Function run_exits(): Logic loop for each exit thread.
+ * 
+ * Algorithm: Waits for non null plate to show in LPR. Calculates revenue
+ *            From each car and writes to an output file. Controls boom gates
+ *            using the same logic as run_entrances.
+ * Input:     An exit_args_t pointer cast to a void*
+ * Output:    None
+ */
 void *run_exits(void *exit_args) {
     exit_args_t *args;
     args = (exit_args_t*) exit_args;
@@ -306,7 +381,7 @@ void *run_exits(void *exit_args) {
     pthread_exit(NULL);
 }
 
-//
+/* Manager program capable of directing cars in a variable sized carpark */
 int main(int argc, char **argv) {
 
     shared_memory_t shm;
@@ -345,6 +420,7 @@ int main(int argc, char **argv) {
         }
     }
 
+    /* Threads to be created by manager */
     pthread_t exit_threads[EXIT_COUNT];
     pthread_t entrance_threads[ENTRANCE_COUNT];
     pthread_t levels_tid[LEVEL_COUNT];
@@ -404,8 +480,19 @@ int main(int argc, char **argv) {
         pthread_create(&entrance_threads[i], NULL, run_entrances, (void *)&entrance_args[i]);
     }
 
-    //@todo
-    pthread_join(entrance_threads[0], NULL);
+    for (int i = 0; i < ENTRANCE_COUNT; i++) {
+        pthread_join(entrance_threads[i], NULL);
+    }
+
+    for (int i = 0; i < EXIT_COUNT; i++) {
+        pthread_join(exit_threads[i], NULL);
+    }
+
+    for (int i = 0; i < LEVEL_COUNT; i++) {
+        pthread_join(levels_tid[i], NULL);
+    }
+
+    pthread_join(status_thread, NULL);
 
     return 0;
 }

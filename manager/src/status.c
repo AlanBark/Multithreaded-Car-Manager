@@ -15,9 +15,15 @@ int get_current_cars(level_info_t *level_info) {
     return cars;
 }
 
-/* Updates the status menu with the most recent hardware data.
-Most of the below code is just a means to display pretty output
-And display without flickering
+/* 
+ * Function update_status_display(): Logic loop for the status display thread.
+ * 
+ * Algorithm: Updates the status menu with the most recent hardware data.
+ *            Constructs a single large string before printing to reduce screen flicker.
+ *            Instead of system("clear"), the program moves the cursor to the top left of the terminal
+ *            and overwrites. This won't work on every terminal, tested working on CAB403 VM and windows terminal.
+ * Input:     A status_args_t object cast to a void*
+ * Output:    None
  */
 void *update_status_display(void *status_args) {
     status_args_t *args;
@@ -81,7 +87,6 @@ void *update_status_display(void *status_args) {
 
     length += sprintf(buffer+length, "* +-------+--------+------+----------+----------+                             *\n\
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\n");
-        // system("clear");
         // reset cursor to top left of screen
         // not as portable as system("clear") but doesn't flicker
         printf("\033[2J\033[1;1H");
