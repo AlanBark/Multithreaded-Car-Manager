@@ -67,7 +67,7 @@ static void *tempmonitor(void *thread_args)
 	for (;;) {
 		temp = data->level_collection[level].sensor;
 		int i = (int)MEDIAN_WINDOW - 1;
-		for (i; i > 0; i--) {
+		for (; i > 0; i--) {
 			int j = i - 1;
 			temp_list[i] = temp_list[j];
 		}
@@ -96,7 +96,7 @@ static void *tempmonitor(void *thread_args)
 			int median = temp_list_copy[(MEDIAN_WINDOW - 1) / 2];
 			/* Add median to front of median list, discard last value */
 			int i = (int)TEMPCHANGE_WINDOW - 1;
-			for (i; i > 0; i--) {
+			for (; i > 0; i--) {
 				int j = i - 1;
 				median_list[i] = median_list[j];
 			}
@@ -124,7 +124,6 @@ static void *tempmonitor(void *thread_args)
 				// If the newest temp is >= 8 degrees higher than the oldest
 				// temp (out of the last 30), this is a high rate-of-rise.
 				// Raise the alarm
-				int last_index = (int)TEMPCHANGE_WINDOW - 1;
 				int temp_diff = (int)(median_list[TEMPCHANGE_WINDOW - 1] - median_list[0]);
 				if (temp_diff >= 8) {
 					*alarm_active = 1;
@@ -169,7 +168,7 @@ int main(void)
 
     shm.data = mmap(NULL, sizeof(shared_data_t), PROT_READ | PROT_WRITE, MAP_SHARED ,shm.fd, 0);
     if (shm.data == MAP_FAILED) {
-        exit_code -1;
+        exit_code = -1;
     }
 
 	if (exit_code != -1) {
