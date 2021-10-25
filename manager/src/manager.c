@@ -247,18 +247,16 @@ void *run_gates(void *gate_arg) {
     gate_t *gate = args->gate;
 
     // Gate always alive
-    while (true) {
-        if (*args->alarm == 0) {
-            // block thread until gate is open
-            pthread_mutex_lock(&gate->mutex);
-            while (gate->status != 'O') {
-                pthread_cond_wait(&gate->cond, &gate->mutex);
-            }
-            // release mutex for other threads, wait 20ms, take mutex and set gate to lowering.
-            pthread_mutex_unlock(&gate->mutex);
-            ms_sleep(20);
-            update_gate(gate, 'L');
+    while (*args->alarm == 0) {
+        // block thread until gate is open
+        pthread_mutex_lock(&gate->mutex);
+        while (gate->status != 'O') {
+            pthread_cond_wait(&gate->cond, &gate->mutex);
         }
+        // release mutex for other threads, wait 20ms, take mutex and set gate to lowering.
+        pthread_mutex_unlock(&gate->mutex);
+        ms_sleep(20);
+        update_gate(gate, 'L');
     }
     pthread_exit(NULL);
 }

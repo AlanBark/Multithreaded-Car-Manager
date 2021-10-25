@@ -22,7 +22,7 @@
 #define CARS_PER_LEVEL 20
 
 // 0 for no fire, 1 for fixed temp fire, 2 for rate of rise fire
-#define SIMULATE_FIRE 1
+#define SIMULATE_FIRE 0
 
 typedef struct temp_args {
     shared_data_t *data;
@@ -35,12 +35,25 @@ void *run_temperature(void *temp_args) {
 
     if (SIMULATE_FIRE == 2) {
         int initial_temp = 18;
+        int count = 0;
         while (true) {
             ms_sleep(get_random_number(args->rng_mutex, 1,5));
             for (int i = 0; i < LEVEL_COUNT; i++) {
                 args->data->level_collection[i].sensor = initial_temp;
             }
-            initial_temp++;
+            // increment every third cycle.
+            // Should indicate a rate of rise of 10 degrees over 30 readings.
+            // Which is enough to trigger alarm
+            if (count == 2) {
+                count = 0;
+                initial_temp++;
+            } else {
+                count++;
+            }
+            // reset to stop the fixed temp alarm from going off
+            if (initial_temp > 58) {
+                initial_temp = 18;
+            }
         }
     } else {
         while (true) {
@@ -214,6 +227,13 @@ int main(int argc, char **argv) {
 
     pthread_create(&car_factory_tid, NULL, generate_cars, (void *)&car_args);
 
-    pthread_join(entrance_threads[0], NULL);
+    for (int i = 0; i < ENTRANCE_COUNT; i++) {
+        pthread_join(entrance_threads[i], NULL);
+    }
+
+    for (int i = 0; i < EXIT_COUNT; i++) {
+        pthread_join(exit_gates[i], NULL);
+    }
+    
     return 0;
 }

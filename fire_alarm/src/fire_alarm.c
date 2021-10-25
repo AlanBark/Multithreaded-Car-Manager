@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
-#include <stdio.h>
 
 #include "type_definitions.h"
 
@@ -37,7 +36,7 @@ struct monitor_args {
 };
 
 /* Sleeps thread for a specified amount of millliseconds */
-void ms_sleep(long msec) {
+static void ms_sleep(long msec) {
     struct timespec ts;
     ts.tv_sec = msec / 1000;
     ts.tv_nsec = (msec % 1000) * 1000000;
@@ -67,10 +66,8 @@ static void *tempmonitor(void *thread_args)
 
 	for (;;) {
 		temp = data->level_collection[level].sensor;
-
-		printf("Temperature: %d\n", temp);
-		
-		for (int i = (MEDIAN_WINDOW - 1); i > 0; i--) {
+		int i = (int)MEDIAN_WINDOW - 1;
+		for (i; i > 0; i--) {
 			int j = i - 1;
 			temp_list[i] = temp_list[j];
 		}
@@ -89,7 +86,7 @@ static void *tempmonitor(void *thread_args)
 			for (int i = 1; i < MEDIAN_WINDOW; i++) {
 				int key = temp_list_copy[i];
 				int j = i - 1;
-				while (j >= 0 && temp_list_copy[j] > key) {
+				while ((j >= 0) && (temp_list_copy[j] > key)) {
 					temp_list_copy[j + 1] = temp_list_copy[j];
 					j = j - 1;
 				}	
@@ -97,9 +94,9 @@ static void *tempmonitor(void *thread_args)
 			}
 
 			int median = temp_list_copy[(MEDIAN_WINDOW - 1) / 2];
-			printf("Median %d\n", median);
 			/* Add median to front of median list, discard last value */
-			for (int i = (TEMPCHANGE_WINDOW - 1); i > 0; i--) {
+			int i = (int)TEMPCHANGE_WINDOW - 1;
+			for (i; i > 0; i--) {
 				int j = i - 1;
 				median_list[i] = median_list[j];
 			}
@@ -109,7 +106,9 @@ static void *tempmonitor(void *thread_args)
 			
 			for (int i = 0; i < TEMPCHANGE_WINDOW; i++) {
 				// Temperatures of 58 degrees and higher are a concern
-				if (median_list[i] >= 58) hightemps++;
+				if (median_list[i] >= 58) {
+					hightemps++;
+				}
 				// Store the oldest temperature for rate-of-rise detection
 			}
 			
@@ -117,14 +116,19 @@ static void *tempmonitor(void *thread_args)
 			if (median_list[TEMPCHANGE_WINDOW - 1] != -999) {
 				// If 90% of the last 30 temperatures are >= 58 degrees,
 				// this is considered a high temperature. Raise the alarm
-				if (hightemps >= (TEMPCHANGE_WINDOW * 0.9))
+				int highttemps_90 = (int)(TEMPCHANGE_WINDOW * 0.9);
+				if (hightemps >= highttemps_90) {
 					*alarm_active = 1;
+				}
 				
 				// If the newest temp is >= 8 degrees higher than the oldest
 				// temp (out of the last 30), this is a high rate-of-rise.
 				// Raise the alarm
-				if ((median_list[TEMPCHANGE_WINDOW - 1] - median_list[0]) >= 8)
+				int last_index = (int)TEMPCHANGE_WINDOW - 1;
+				int temp_diff = (int)(median_list[TEMPCHANGE_WINDOW - 1] - median_list[0]);
+				if (temp_diff >= 8) {
 					*alarm_active = 1;
+				}
 			}
 		}
 		ms_sleep(2);
@@ -155,60 +159,66 @@ int main(void)
 {
 	shared_memory_t shm;
 
+	int exit_code = 0;
+
     shm.fd = shm_open(SHARED_NAME, O_RDWR, 438);
     if (shm.fd < 0) {
         shm.data = NULL;
-        return -1;
+        exit_code = -1;
     }
 
     shm.data = mmap(NULL, sizeof(shared_data_t), PROT_READ | PROT_WRITE, MAP_SHARED ,shm.fd, 0);
     if (shm.data == MAP_FAILED) {
-        return -1;
+        exit_code -1;
     }
 
-	volatile int alarm_active = 0;
-	
-	pthread_t threads[LEVELS];
-	struct monitor_args args[LEVELS];
+	if (exit_code != -1) {
 
-	for (int i = 0; i < LEVELS; i++) {
-		args[i].level = i;
-		args[i].alarm_active = &alarm_active;
-		args[i].data = shm.data;
-		pthread_create(&threads[i], NULL, tempmonitor, (void *)&args[i]);
-	}
-	for (;;) {
-		if (alarm_active == 1) {
-			// Handle the alarm system and open boom gates
-			// Activate alarms on all levels
-			for (int i = 0; i < LEVELS; i++) {
-				shm.data->level_collection[i].alarm = 1;
-			}
-			
-			// Open up all boom gates
-			pthread_t boomgatethreads[EXITS + ENTRANCES];
-			for (int i = 0; i < ENTRANCES; i++) {
-				pthread_create(&boomgatethreads[i], NULL, openboomgate, (void*)&shm.data->entrance_collection[i].gate);
-			}
-			for (int i = 0; i < EXITS; i++) {
-				pthread_create(&boomgatethreads[i + ENTRANCES], NULL, openboomgate, (void*)&shm.data->exit_collection[i].gate);
-			}
-			
-			// Show evacuation message on an endless loop
-			for (;;) {
-				const char *evacmessage = "EVACUATE ";
-				for (const char *p = evacmessage; *p != '\0'; p++) {
-					for (int i = 0; i < ENTRANCES; i++) {
-						;
-						pthread_mutex_lock(&shm.data->entrance_collection[i].sign.mutex);
-						shm.data->entrance_collection[i].sign.display = *p;
-						pthread_cond_broadcast(&shm.data->entrance_collection[i].sign.cond);
-						pthread_mutex_unlock(&shm.data->entrance_collection[i].sign.mutex);
+		volatile int alarm_active = 0;
+		
+		pthread_t threads[LEVELS];
+		struct monitor_args args[LEVELS];
+
+		for (int i = 0; i < LEVELS; i++) {
+			args[i].level = i;
+			args[i].alarm_active = &alarm_active;
+			args[i].data = shm.data;
+			pthread_create(&threads[i], NULL, tempmonitor, (void *)&args[i]);
+		}
+		for (;;) {
+			if (alarm_active == 1) {
+				// Handle the alarm system and open boom gates
+				// Activate alarms on all levels
+				for (int i = 0; i < LEVELS; i++) {
+					shm.data->level_collection[i].alarm = 1;
+				}
+				
+				// Open up all boom gates
+				pthread_t boomgatethreads[EXITS + ENTRANCES];
+				for (int i = 0; i < ENTRANCES; i++) {
+					pthread_create(&boomgatethreads[i], NULL, openboomgate, (void*)&shm.data->entrance_collection[i].gate);
+				}
+				for (int i = 0; i < EXITS; i++) {
+					pthread_create(&boomgatethreads[i + ENTRANCES], NULL, openboomgate, (void*)&shm.data->exit_collection[i].gate);
+				}
+				
+				// Show evacuation message on an endless loop
+				for (;;) {
+					const char *evacmessage = "EVACUATE ";
+					for (const char *p = evacmessage; *p != '\0'; p++) {
+						for (int i = 0; i < ENTRANCES; i++) {
+							;
+							pthread_mutex_lock(&shm.data->entrance_collection[i].sign.mutex);
+							shm.data->entrance_collection[i].sign.display = *p;
+							pthread_cond_broadcast(&shm.data->entrance_collection[i].sign.cond);
+							pthread_mutex_unlock(&shm.data->entrance_collection[i].sign.mutex);
+						}
+						ms_sleep(20);
 					}
-					ms_sleep(20);
 				}
 			}
+			ms_sleep(1);
 		}
-		ms_sleep(1);
 	}
+	return exit_code;
 }
