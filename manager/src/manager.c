@@ -26,6 +26,7 @@ typedef struct exit_args {
     revenue_info_t *revenue_info;
     exit_t *exit;
     pthread_mutex_t *file_mutex;
+    volatile int *alarm;
 } exit_args_t;
 
 struct entrance_args {
@@ -33,12 +34,18 @@ struct entrance_args {
     entrance_t *entrance;
     level_info_t **level_info;
     revenue_info_t *revenue_info;
+    volatile int *alarm;
 };
 
 typedef struct level_args {
     level_info_t *level;
     lpr_t *lpr;
 } level_args_t;
+
+typedef struct gate_args {
+    gate_t *gate;
+    volatile int *alarm;
+} gate_args_t;
 
 /* Plates aren't null terminated so no strcmp */
 bool plate_compare(char plate1[6], char plate2[6]) {
@@ -235,20 +242,23 @@ void *run_level(void *level_args) {
  * Output:    None
  */
 void *run_gates(void *gate_arg) {
-    gate_t *gate;
-    gate = (gate_t *)gate_arg;
+    gate_args_t *args;
+    args = (gate_args_t *)gate_arg;
+    gate_t *gate = args->gate;
 
     // Gate always alive
     while (true) {
-        // block thread until gate is open
-        pthread_mutex_lock(&gate->mutex);
-        while (gate->status != 'O') {
-            pthread_cond_wait(&gate->cond, &gate->mutex);
+        if (*args->alarm == 0) {
+            // block thread until gate is open
+            pthread_mutex_lock(&gate->mutex);
+            while (gate->status != 'O') {
+                pthread_cond_wait(&gate->cond, &gate->mutex);
+            }
+            // release mutex for other threads, wait 20ms, take mutex and set gate to lowering.
+            pthread_mutex_unlock(&gate->mutex);
+            ms_sleep(20);
+            update_gate(gate, 'L');
         }
-        // release mutex for other threads, wait 20ms, take mutex and set gate to lowering.
-        pthread_mutex_unlock(&gate->mutex);
-        ms_sleep(20);
-        update_gate(gate, 'L');
     }
     pthread_exit(NULL);
 }
@@ -269,44 +279,51 @@ void* run_entrances(void *entrance_args) {
     args = (struct entrance_args*) entrance_args;
 
     pthread_t gate_tid;
-    pthread_create(&gate_tid, NULL, run_gates, (void*) &args->entrance->gate);
+    gate_args_t gate_args;
+    gate_args.gate = &args->entrance->gate;
+    gate_args.alarm = args->alarm;
+    pthread_create(&gate_tid, NULL, run_gates, (void*)&gate_args);
     
     // aquire mutex for duration of loop - unlocked by wait only
     pthread_mutex_lock(&args->entrance->lpr.mutex);
     while (true) {
-        if (htab_find(&args->plates, args->entrance->lpr.license_plate) != NULL) {
-            // car valid. Signal the car where to go and start boom gate process if closed.
-            int level = get_level(args->level_info);
-            if (level == -1) {
-                update_sign(&args->entrance->sign, 'F');
-            } else {
-                char level_char = level + '0';
-                update_sign(&args->entrance->sign, level_char);
-
-                revenue_info_add(args->revenue_info, args->entrance->lpr.license_plate);
-
-                // Boom gate logic
-                pthread_mutex_lock(&args->entrance->gate.mutex);
-                if (args->entrance->gate.status == 'C') {
-                    args->entrance->gate.status = 'R';
-                    pthread_cond_broadcast(&args->entrance->gate.cond);
+        if (*args->alarm == 0) {
+            if (htab_find(&args->plates, args->entrance->lpr.license_plate) != NULL) {
+                // car valid. Signal the car where to go and start boom gate process if closed.
+                int level = get_level(args->level_info);
+                if (level == -1) {
+                    update_sign(&args->entrance->sign, 'F');
                 } else {
-                    // Condition where gate is in lowering stage and must be re-opened
-                    while(args->entrance->gate.status == 'L') {
-                        pthread_cond_wait(&args->entrance->gate.cond, &args->entrance->gate.mutex);
-                    }
-                    // after gate has changed from 'L', check again that is 'C'.
+                    char level_char = level + '0';
+                    update_sign(&args->entrance->sign, level_char);
+
+                    revenue_info_add(args->revenue_info, args->entrance->lpr.license_plate);
+
+                    // Boom gate logic
+                    pthread_mutex_lock(&args->entrance->gate.mutex);
                     if (args->entrance->gate.status == 'C') {
                         args->entrance->gate.status = 'R';
                         pthread_cond_broadcast(&args->entrance->gate.cond);
+                    } else {
+                        // Condition where gate is in lowering stage and must be re-opened
+                        while(args->entrance->gate.status == 'L') {
+                            pthread_cond_wait(&args->entrance->gate.cond, &args->entrance->gate.mutex);
+                        }
+                        // after gate has changed from 'L', check again that is 'C'.
+                        if (args->entrance->gate.status == 'C') {
+                            args->entrance->gate.status = 'R';
+                            pthread_cond_broadcast(&args->entrance->gate.cond);
+                        }
                     }
+                    pthread_mutex_unlock(&args->entrance->gate.mutex);
                 }
-                pthread_mutex_unlock(&args->entrance->gate.mutex);
+            } else {
+                update_sign(&args->entrance->sign, 'X');
             }
+            pthread_cond_wait(&args->entrance->lpr.cond, &args->entrance->lpr.mutex);
         } else {
-            update_sign(&args->entrance->sign, 'X');
+            pthread_cond_wait(&args->entrance->lpr.cond, &args->entrance->lpr.mutex);
         }
-        pthread_cond_wait(&args->entrance->lpr.cond, &args->entrance->lpr.mutex);
     }
     pthread_exit(NULL);
 }
@@ -329,7 +346,10 @@ void *run_exits(void *exit_args) {
     exit = args->exit;
 
     pthread_t gate_tid;
-    pthread_create(&gate_tid, NULL, run_gates, (void*) &exit->gate);
+    gate_args_t gate_args;
+    gate_args.gate = &args->exit->gate;
+    gate_args.alarm = args->alarm;
+    pthread_create(&gate_tid, NULL, run_gates, (void*)&gate_args);
 
     char empty_plate[6];
     memset(empty_plate, 0, sizeof(empty_plate));
@@ -468,6 +488,7 @@ int main(int argc, char **argv) {
         exit_args[i].exit = &shm.data->exit_collection[i];
         exit_args[i].revenue_info = &revenue;
         exit_args[i].file_mutex = &file_mutex;
+        exit_args[i].alarm = &shm.data->level_collection[0].alarm;
         pthread_create(&exit_threads[i], NULL, run_exits, (void *)&exit_args[i]);
     }
 
@@ -477,6 +498,7 @@ int main(int argc, char **argv) {
         entrance_args[i].plates = plates;
         entrance_args[i].level_info = levels;
         entrance_args[i].revenue_info = &revenue;
+        entrance_args[i].alarm = &shm.data->level_collection[0].alarm;
         pthread_create(&entrance_threads[i], NULL, run_entrances, (void *)&entrance_args[i]);
     }
 

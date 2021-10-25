@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Werror -Wall -pedantic -std=c11
+CFLAGS=-Werror -Wall -pedantic -std=gnu99
 LDFLAGS=-pthread -lrt
 
 TARGET_EXEC ?= fire_alarm.out

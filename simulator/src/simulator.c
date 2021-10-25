@@ -22,7 +22,7 @@
 #define CARS_PER_LEVEL 20
 
 // 0 for no fire, 1 for fixed temp fire, 2 for rate of rise fire
-#define SIMULATE_FIRE 0
+#define SIMULATE_FIRE 1
 
 typedef struct temp_args {
     shared_data_t *data;
