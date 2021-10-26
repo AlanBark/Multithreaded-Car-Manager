@@ -10,10 +10,6 @@
 
 #define SHARED_NAME "PARKING"
 
-#define LEVELS 5
-#define ENTRANCES 5
-#define EXITS 5
-
 #define MEDIAN_WINDOW 5
 #define TEMPCHANGE_WINDOW 30
 

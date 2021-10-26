@@ -1,5 +1,9 @@
 #include <pthread.h>
 
+#define LEVELS 10
+#define ENTRANCES 10
+#define EXITS 10
+
 typedef struct gate {
 
     pthread_mutex_t mutex;
@@ -60,11 +64,11 @@ typedef struct exit {
 
 typedef struct shared_data {
 
-    entrance_t entrance_collection[5];
+    entrance_t entrance_collection[ENTRANCES];
 
-    exit_t exit_collection[5];
+    exit_t exit_collection[EXITS];
 
-    level_t level_collection[5];
+    level_t level_collection[LEVELS];
 
 } shared_data_t;
 

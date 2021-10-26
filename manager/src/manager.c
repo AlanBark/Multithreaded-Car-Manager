@@ -9,13 +9,12 @@
 #include "status.h"
 #include "util.h"
 
+/* LEVELS, EXITS, ENTRANCES defined in shared_memory.h */
+
 #define SHARED_NAME "PARKING"
 
 #define BILLING_FILE "Billing.txt"
 
-#define ENTRANCE_COUNT 5
-#define EXIT_COUNT 5
-#define LEVEL_COUNT 5
 #define CARS_PER_LEVEL 20
 
 /* Change reasonably based on size of plates.txt */

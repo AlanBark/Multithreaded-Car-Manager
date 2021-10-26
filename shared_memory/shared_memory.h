@@ -5,15 +5,18 @@
 #include "exit.h"
 #include "level.h"
 
-// Always reserve 2920 byes (5 of each).
+#define LEVEL_COUNT 10
+#define ENTRANCE_COUNT 10
+#define EXIT_COUNT 10
+
 // Constants control how many are actually initialized.
 typedef struct shared_data {
 
-    entrance_t entrance_collection[5];
+    entrance_t entrance_collection[ENTRANCE_COUNT];
 
-    exit_t exit_collection[5];
+    exit_t exit_collection[EXIT_COUNT];
 
-    level_t level_collection[5];
+    level_t level_collection[LEVEL_COUNT];
 
 } shared_data_t;
 

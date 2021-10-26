@@ -12,13 +12,12 @@
 #include "shared_memory.h"
 #include "util.h"
 
+/* LEVELS, EXITS, ENTRANCES defined in shared_memory.h */
+
 #define SHARED_NAME "PARKING"
 
 /* Constants controlling parking lot size*/
 
-#define LEVEL_COUNT 5
-#define ENTRANCE_COUNT 5
-#define EXIT_COUNT 5
 #define CARS_PER_LEVEL 20
 
 // 0 for no fire, 1 for fixed temp fire, 2 for rate of rise fire
