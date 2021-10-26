@@ -61,7 +61,7 @@ void *update_status_display(void *status_args) {
             char exit_gate = get_gate(&data->exit_collection[i].gate);
             char exit_plate[7];
             get_plate(&data->exit_collection[i].lpr, exit_plate);
-            length += sprintf(buffer+length, "* | %d  | %s | %c    | %c    |   | %d  | %s | %c    |                      *\n", i+1, plate, gate, sign, i, exit_plate, exit_gate);
+            length += sprintf(buffer+length, "* | %d  | %s | %c    | %c    |   | %d  | %s | %c    |                      *\n", i+1, plate, gate, sign, i+1, exit_plate, exit_gate);
         } else {
             length += sprintf(buffer+length, "* | %d  | %s | %c    | %c    |                                               *\n", i+1, plate, gate, sign);
         }
