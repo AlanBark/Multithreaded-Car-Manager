@@ -5,9 +5,9 @@
 #include "exit.h"
 #include "level.h"
 
-#define LEVEL_COUNT 10
-#define ENTRANCE_COUNT 10
-#define EXIT_COUNT 10
+#define LEVEL_COUNT 5
+#define ENTRANCE_COUNT 5
+#define EXIT_COUNT 5
 
 // Constants control how many are actually initialized.
 typedef struct shared_data {

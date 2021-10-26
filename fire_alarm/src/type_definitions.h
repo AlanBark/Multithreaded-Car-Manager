@@ -1,8 +1,8 @@
 #include <pthread.h>
 
-#define LEVELS 10
-#define ENTRANCES 10
-#define EXITS 10
+#define LEVELS 5
+#define ENTRANCES 5
+#define EXITS 5
 
 typedef struct gate {
 
